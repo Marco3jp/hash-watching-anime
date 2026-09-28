@@ -62,7 +62,7 @@ export function SettingsPage() {
   return (
     <div className="max-w-3xl space-y-10">
       <section>
-        <h1 className="font-serif text-3xl font-semibold">書き出し</h1>
+        <h1 className="text-2xl font-semibold">書き出し</h1>
         <p className="mt-2 text-sm text-muted">
           シリーズ {db.series.length}、話 {db.episodes.length}、キャラクター {db.characters.length} を1つの JSON にする。
           保存先はこのブラウザの LocalStorage なので、別の端末へ移すときや控えを取るときに使う。
@@ -70,14 +70,14 @@ export function SettingsPage() {
         <button
           type="button"
           onClick={onExport}
-          className="mt-3 rounded-md border border-ink bg-ink px-4 py-1.5 text-sm text-paper-2"
+          className="btn btn-primary mt-4"
         >
           JSON を書き出す
         </button>
       </section>
 
       <section>
-        <h2 className="font-serif text-2xl font-semibold">読み込み</h2>
+        <h2 className="text-2xl font-semibold">読み込み</h2>
         <p className="mt-2 text-sm text-muted">
           書き出した JSON を選ぶ。同じ id のページは置き換わり、無い id は足される。id は引き直さないので、本文のリンクや名簿はそのままつながる。
         </p>
@@ -87,17 +87,20 @@ export function SettingsPage() {
           accept=".json,application/json"
           onChange={onFile}
           aria-label="読み込む JSON"
-          className="mt-3 block text-sm"
+          className="hidden"
         />
-        {error ? <p className="mt-3 text-sm text-seal">{error}</p> : null}
+        <button type="button" onClick={() => fileInput.current?.click()} className="btn mt-4">
+          JSON を選ぶ
+        </button>
+        {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
         {done ? <p className="mt-3 text-sm">{done}</p> : null}
         {pending ? (
-          <div className="mt-4 rounded-lg border border-line bg-paper-2 p-4 text-sm">
+          <div className="mt-4 rounded-lg border border-line bg-surface p-4 text-sm">
             <p>
               新しく足す: シリーズ {pending.preview.create.series}、話 {pending.preview.create.episodes}、キャラクター {pending.preview.create.characters}
             </p>
             {overwriteCount > 0 ? (
-              <div className="mt-2 text-seal">
+              <div className="mt-2 text-danger">
                 <p>置き換える: {overwriteCount} ページ（同じ id の今の中身は消える）</p>
                 <OverwriteList title="シリーズ" names={pending.preview.overwrite.series} />
                 <OverwriteList title="話" names={pending.preview.overwrite.episodes} />
@@ -105,18 +108,10 @@ export function SettingsPage() {
               </div>
             ) : null}
             <p className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={onConfirm}
-                className="rounded-md border border-ink bg-ink px-3 py-1 text-paper-2"
-              >
+              <button type="button" onClick={onConfirm} className="btn btn-primary">
                 読み込む
               </button>
-              <button
-                type="button"
-                onClick={() => setPending(null)}
-                className="rounded-md border border-line px-3 py-1"
-              >
+              <button type="button" onClick={() => setPending(null)} className="btn">
                 やめる
               </button>
             </p>
@@ -125,8 +120,8 @@ export function SettingsPage() {
       </section>
 
       <section className="text-sm text-muted">
-        <h2 className="font-mono text-xs tracking-[0.16em]">保存キー</h2>
-        <ul className="mt-2 font-mono text-xs">
+        <h2 className="label">保存キー</h2>
+        <ul className="mt-3 space-y-1 font-mono text-xs">
           {Object.values(storageKeys).map((key) => (
             <li key={key}>{key}</li>
           ))}
@@ -143,7 +138,7 @@ function OverwriteList({ title, names }: { title: string; names: string[] }) {
       <summary className="cursor-pointer">
         {title} {names.length}
       </summary>
-      <ul className="ml-4 mt-1 list-disc text-ink">
+      <ul className="mt-1 ml-4 list-disc text-fg">
         {names.slice(0, 20).map((name, index) => (
           <li key={`${name}-${index}`}>{name || "（題名なし）"}</li>
         ))}
