@@ -13,6 +13,8 @@ npm run dev
 
 開発サーバーは http://127.0.0.1:43123 で開く。
 
+`main` への push で GitHub Actions が GitHub Pages に載せる。公開先は https://marco3jp.github.io/hash-watching-anime/ 。ローカルの開発サーバーはルートのまま。
+
 ## 中身
 
 - `src/model/types.ts` — 保存する型
