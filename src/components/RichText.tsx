@@ -1,37 +1,22 @@
-import type { Page } from "../model/types.ts";
+import type { Page, TextRun } from "../model/types.ts";
 import type { PageFocus } from "../model/views.ts";
 
 export function RichText({
-  text,
+  runs,
   pages,
   onOpen,
 }: {
-  text: string;
+  runs: TextRun[];
   pages: Page[];
   onOpen: (focus: PageFocus) => void;
 }) {
-  const parts = text.split(/(\[\[[^\]\n]+\]\])/g);
   return (
     <>
-      {parts.map((part, index) => {
-        const matched = part.match(/^\[\[([^\]\n]+)\]\]$/);
-        if (!matched) return <span key={index}>{part}</span>;
-        const raw = matched[1].trim();
-        const hits = pages.filter(
-          (page) => page.title === raw || page.aliases.includes(raw),
-        );
-        if (hits.length !== 1) {
-          return (
-            <span
-              key={index}
-              className="border-b border-dashed border-seal/70 text-seal"
-              title="ページが一つに定まらない"
-            >
-              {raw}
-            </span>
-          );
-        }
-        const page = hits[0];
+      {runs.map((run, index) => {
+        const page = run.pageId
+          ? pages.find((item) => item.id === run.pageId)
+          : undefined;
+        if (!page) return <span key={index}>{run.text}</span>;
         return (
           <button
             key={index}
@@ -39,7 +24,7 @@ export function RichText({
             className="border-b border-series/40 text-series hover:border-series"
             onClick={() => onOpen({ kind: page.kind, id: page.id })}
           >
-            {raw}
+            {run.text}
           </button>
         );
       })}

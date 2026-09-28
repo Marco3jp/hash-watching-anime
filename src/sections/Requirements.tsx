@@ -7,7 +7,7 @@ export function Requirements() {
       id="requirements"
       index="02"
       title="要件"
-      lead="依頼の文から崩していないものと、型に落とすときに足した読みを、同じリストに置いた。右の短い注が仮の読み。"
+      lead="実況に要る範囲。スタッフと楽曲は、この一覧に入れていない。"
     >
       <ol className="space-y-3">
         {requirements.map((item, index) => (

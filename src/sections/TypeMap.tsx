@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Section } from "../components/Section.tsx";
 import { groupLabel, typeDocs, type TypeDoc } from "../content.ts";
 
-const groups: TypeDoc["group"][] = ["work", "people", "music", "view"];
+const groups: TypeDoc["group"][] = ["work", "people", "view"];
 
 export function TypeMap() {
   const [selectedId, setSelectedId] = useState("Episode");
@@ -13,7 +13,7 @@ export function TypeMap() {
       id="types"
       index="06"
       title="型の地図"
-      lead="保存するのは実線のカード。点線のカードは、ページを開いたときに組む形で、データベースには置かない。"
+      lead="保存するのはシリーズ、話、キャラクターと、その配列。点線は、開いたときに組む表示で、別のレコードにはしない。"
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-5">
@@ -58,14 +58,10 @@ export function TypeMap() {
           ))}
           <ol className="space-y-2 text-sm">
             <li>Series 1つに Episode が並ぶ。並びは sortKey。</li>
-            <li>前後は series.links。話への明示的な続きは episode.links。</li>
-            <li>名簿は series.characters。出演の印は episode.appearances。</li>
-            <li>
-              キャラクターデザインは series.credits。絵コンテは episode.credits。話を開いたらこの二つを並べる。
-            </li>
-            <li>曲の使い方は series.songs。名義は song.credits。</li>
-            <li>人物ページの担当一覧だけ、各ページの credits を歩く。</li>
-            <li>本文の [[名前]] は id を保存しない。表示するときに title と aliases で引く。</li>
+            <li>名簿は series.characters。その話に出すキャラクターは episode.appearances。</li>
+            <li>どちらも保存する。サイドパネルは、その配列を開いたときに並べたもの。</li>
+            <li>ページが無い characterId は、並べない。</li>
+            <li>本文のリンクは pageId。サジェストで選んだ id を入れる。</li>
           </ol>
         </div>
         <aside className="h-fit rounded-lg border border-line bg-paper-2 p-4 lg:sticky lg:top-24">
