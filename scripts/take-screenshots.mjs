@@ -4,19 +4,16 @@
  * 使用方法:
  *   npm run screenshot
  *
- * Vite dev サーバーを起動し、レビューページの主な面を screenshots/ に保存する。
- * システムの Google Chrome を使う。
- *
- * 見本データはいま src/model/example.ts に直書きしている。
- * ブラウザ保存ができたあとは、Sparkling Journey と同じく
- * addInitScript で localStorage へシードを注入する。
+ * Vite dev サーバーを port 43124 で起動し、src/model/example.ts の見本を
+ * Sparkling Journey と同じく addInitScript で localStorage へ注入してから、
+ * 各ページを screenshots/ に保存する。システムの Google Chrome を使う。
  */
 
 import { chromium } from "@playwright/test";
-import { spawn } from "child_process";
 import { mkdir } from "fs/promises";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+import { createServer } from "vite";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, "..");
@@ -24,51 +21,32 @@ const screenshotsDir = join(rootDir, "screenshots");
 const port = 43124;
 const baseUrl = `http://127.0.0.1:${port}`;
 
-function waitForServer(url, timeout = 30000) {
-  const start = Date.now();
-  return new Promise((resolve, reject) => {
-    const check = () => {
-      fetch(url)
-        .then((res) => {
-          if (res.ok) resolve();
-          else retry();
-        })
-        .catch(retry);
-    };
-    const retry = () => {
-      if (Date.now() - start >= timeout) {
-        reject(new Error(`サーバーが ${timeout}ms 以内に起動しませんでした: ${url}`));
-      } else {
-        setTimeout(check, 500);
-      }
-    };
-    check();
-  });
-}
-
-async function shoot(page, name, selector) {
-  const target = page.locator(selector);
-  await target.scrollIntoViewIfNeeded();
-  const dest = join(screenshotsDir, `${name}.png`);
-  await target.screenshot({ path: dest });
-  console.log(`  保存完了: ${dest}`);
+function byTitle(items, title) {
+  const found = items.find((item) => item.title === title);
+  if (!found) throw new Error(`見本に無い: ${title}`);
+  return found;
 }
 
 async function main() {
   await mkdir(screenshotsDir, { recursive: true });
 
-  const server = spawn(
-    "npx",
-    ["vite", "--port", String(port), "--host", "127.0.0.1"],
-    { stdio: ["ignore", "pipe", "pipe"], cwd: rootDir, detached: true },
-  );
-  server.stdout.on("data", (data) => process.stdout.write(data));
-  server.stderr.on("data", (data) => process.stderr.write(data));
+  const server = await createServer({
+    root: rootDir,
+    server: { port, host: "127.0.0.1", strictPort: true },
+    logLevel: "warn",
+  });
 
   try {
-    console.log("Vite dev サーバーの起動を待機中...");
-    await waitForServer(`${baseUrl}/`);
-    console.log("サーバー起動を確認。スクリーンショット取得を開始します。");
+    await server.listen();
+    const { buildExample } = await server.ssrLoadModule("/src/model/example.ts");
+    const { storageKeys } = await server.ssrLoadModule("/src/model/storage.ts");
+    const db = buildExample();
+
+    const tv1 = byTitle(db.series, "中二病でも恋がしたい！");
+    const first = byTitle(db.episodes, "邂逅の…邪王真眼");
+    const second = byTitle(db.episodes, "旋律の…聖調理人（プリーステス）");
+    const film = byTitle(db.episodes, "映画 中二病でも恋がしたい！ -Take On Me-");
+    const rikka = byTitle(db.characters, "小鳥遊六花");
 
     const executablePath =
       process.env.CHROME_PATH ?? "/usr/bin/google-chrome-stable";
@@ -78,45 +56,58 @@ async function main() {
     });
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
+      locale: "ja-JP",
     });
+    await context.addInitScript(
+      ({ keys, data }) => {
+        if (sessionStorage.getItem("seeded")) return;
+        sessionStorage.setItem("seeded", "1");
+        localStorage.setItem(keys.series, JSON.stringify(data.series));
+        localStorage.setItem(keys.episodes, JSON.stringify(data.episodes));
+        localStorage.setItem(keys.characters, JSON.stringify(data.characters));
+      },
+      { keys: storageKeys, data: db },
+    );
     const page = await context.newPage();
-    await page.goto(baseUrl);
-    await page.waitForLoadState("networkidle");
-    await page.evaluate(() => document.fonts.ready);
 
-    const sections = [
-      { name: "premise", selector: "#premise" },
-      { name: "questions", selector: "#questions" },
-      { name: "map", selector: "#map" },
-      { name: "types", selector: "#types" },
+    const shots = [
+      { name: "home", path: "/" },
+      { name: "series", path: `/series/${tv1.id}` },
+      { name: "episode", path: `/episodes/${first.id}` },
+      { name: "episode-roster", path: `/episodes/${second.id}` },
+      { name: "film", path: `/episodes/${film.id}` },
+      { name: "character", path: `/characters/${rikka.id}` },
+      { name: "search", path: `/search?text=${encodeURIComponent("六花")}` },
+      { name: "settings", path: "/settings" },
     ];
-    for (const section of sections) {
-      console.log(`  撮影中: ${section.name}`);
-      await shoot(page, section.name, section.selector);
+
+    for (const shot of shots) {
+      console.log(`  撮影中: ${shot.name}`);
+      await page.goto(`${baseUrl}${shot.path}`);
+      await page.waitForLoadState("networkidle");
+      await page.evaluate(() => document.fonts.ready);
+      const dest = join(screenshotsDir, `${shot.name}.png`);
+      await page.screenshot({ path: dest, fullPage: true });
+      console.log(`  保存完了: ${dest}`);
     }
 
-    const screen = page.locator("#screen");
-    console.log("  撮影中: episode");
-    await shoot(page, "episode", "#screen");
-
-    console.log("  撮影中: episode-roster");
-    await screen.getByRole("button", { name: "第2話", exact: true }).click();
-    await shoot(page, "episode-roster", "#screen");
-
-    console.log("  撮影中: film");
-    await screen.getByRole("button", { name: "Take On Me", exact: true }).click();
-    await shoot(page, "film", "#screen");
+    console.log("  撮影中: suggest");
+    await page.goto(`${baseUrl}/episodes/${second.id}`);
+    await page.waitForLoadState("networkidle");
+    await page.evaluate(() => document.fonts.ready);
+    const body = page.getByRole("textbox", { name: "本文" }).first();
+    await body.click();
+    await body.pressSequentially("部室で@");
+    await page.keyboard.type("六");
+    await page.getByRole("listbox").waitFor();
+    const suggestDest = join(screenshotsDir, "suggest.png");
+    await page.screenshot({ path: suggestDest, fullPage: true });
+    console.log(`  保存完了: ${suggestDest}`);
 
     await browser.close();
     console.log("\nすべてのスクリーンショットを保存しました:", screenshotsDir);
   } finally {
-    if (server.pid) {
-      try {
-        process.kill(-server.pid, "SIGTERM");
-      } catch {
-        server.kill("SIGTERM");
-      }
-    }
+    await server.close();
   }
 }
 
