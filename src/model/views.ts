@@ -47,11 +47,6 @@ export interface CharacterSidePanel {
   links: Page[];
 }
 
-export type PageFocus =
-  | { kind: "series"; id: string }
-  | { kind: "episode"; id: string }
-  | { kind: "character"; id: string };
-
 export function pagesOf(db: Database): Page[] {
   return [...db.series, ...db.episodes, ...db.characters];
 }
@@ -177,7 +172,7 @@ export function buildCharacterSidePanel(
   };
 }
 
-function episodesIn(db: Database, seriesId: string): Episode[] {
+export function episodesIn(db: Database, seriesId: string): Episode[] {
   return db.episodes
     .filter((item) => item.seriesId === seriesId)
     .slice()
