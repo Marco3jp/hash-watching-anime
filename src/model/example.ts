@@ -2,7 +2,6 @@ import type {
   Credit,
   Database,
   Episode,
-  EpisodeAppearance,
   MemoBlock,
   PageFields,
   Series,
@@ -10,7 +9,7 @@ import type {
   SeriesLink,
   Song,
   SongCredit,
-  SongPlacement,
+  SongUse,
 } from "./types.ts";
 
 const STAMP = "2026-09-28T00:00:00.000Z";
@@ -47,6 +46,44 @@ function at(id: string, time: string, value: string): MemoBlock {
   return { id, type: "timecode", at: time, text: value };
 }
 
+function credit(
+  id: string,
+  personId: string,
+  role: string,
+  characterId: string | null = null,
+): Credit {
+  return { id, personId, characterId, role, note: "" };
+}
+
+function roster(
+  id: string,
+  characterId: string,
+  role: string,
+): SeriesCharacter {
+  return { id, characterId, role, note: "" };
+}
+
+function link(
+  id: string,
+  toSeriesId: string,
+  kind: SeriesLink["kind"],
+  note: string,
+): SeriesLink {
+  return { id, toSeriesId, kind, note };
+}
+
+function songUse(
+  id: string,
+  songId: string,
+  usage: SongUse["usage"],
+): SongUse {
+  return { id, songId, usage, episodeIds: [], note: "" };
+}
+
+function songCredit(id: string, role: string, creditName: string): SongCredit {
+  return { id, role, note: "", creditName };
+}
+
 const series: Series[] = [
   {
     ...base("s-tv1", "中二病でも恋がしたい！", ["1期"], [
@@ -57,11 +94,38 @@ const series: Series[] = [
     ]),
     kind: "series",
     unit: "serial",
+    links: [
+      link("sl-tv1-ren", "s-ren", "sequel", "テレビシリーズ第2期"),
+      link(
+        "sl-tv1-kai",
+        "s-kai",
+        "compilation",
+        "1期を六花の視点で再構成し、新作映像を足した総集編",
+      ),
+    ],
+    characters: [
+      roster("sc-yuuta", "c-yuuta", "主人公"),
+      roster("sc-rikka", "c-rikka", "ヒロイン"),
+      roster("sc-shinka", "c-shinka", "クラスメイト"),
+    ],
+    credits: [
+      credit("cr-director", "p-ishihara", "監督"),
+      credit("cr-series", "p-hanada", "シリーズ構成"),
+      credit("cr-design", "p-ikeda", "キャラクターデザイン"),
+      credit("cr-yuuta", "p-fukuyama", "声優", "c-yuuta"),
+      credit("cr-rikka", "p-uchida", "声優", "c-rikka"),
+      credit("cr-shinka", "p-akasaki", "声優", "c-shinka"),
+    ],
+    songs: [songUse("sp-op", "song-op", "opening"), songUse("sp-ed", "song-ed", "ending")],
   },
   {
     ...base("s-ren", "中二病でも恋がしたい！戀", ["戀", "2期"], []),
     kind: "series",
     unit: "serial",
+    links: [link("sl-ren-tom", "s-tom", "sequel", "戀の続き。高校3年への進級前")],
+    characters: [],
+    credits: [],
+    songs: [],
   },
   {
     ...base(
@@ -72,6 +136,10 @@ const series: Series[] = [
     ),
     kind: "series",
     unit: "single",
+    links: [],
+    characters: [],
+    credits: [],
+    songs: [],
   },
   {
     ...base(
@@ -82,15 +150,40 @@ const series: Series[] = [
     ),
     kind: "series",
     unit: "single",
+    links: [],
+    characters: [],
+    credits: [],
+    songs: [],
   },
 ];
 
+function episodeShell(
+  id: string,
+  title: string,
+  blocks: MemoBlock[],
+  seriesId: string,
+  label: string,
+  sortKey: number,
+  airedOn: string | null,
+): Episode {
+  return {
+    ...base(id, title, [], blocks),
+    kind: "episode",
+    seriesId,
+    label,
+    sortKey,
+    airedOn,
+    links: [],
+    appearances: [],
+    credits: [],
+  };
+}
+
 const episodes: Episode[] = [
   {
-    ...base(
+    ...episodeShell(
       "e-tv1-01",
       "邂逅の…邪王真眼",
-      [],
       [
         at(
           "b-e1-time",
@@ -103,198 +196,86 @@ const episodes: Episode[] = [
         ),
         text("b-e1-miss", "[[ない名前]]は、対応するページが無い。"),
       ],
+      "s-tv1",
+      "第1話",
+      10,
+      "2012-10-03",
     ),
-    kind: "episode",
-    seriesId: "s-tv1",
-    label: "第1話",
-    sortKey: 10,
-    airedOn: "2012-10-03",
+    appearances: [
+      {
+        id: "ap-e1-yuuta",
+        characterId: "c-yuuta",
+        note: "見本では第1話の出演を二人に限っている",
+      },
+      { id: "ap-e1-rikka", characterId: "c-rikka", note: "" },
+    ],
+    credits: [
+      credit("cr-script", "p-hanada", "脚本"),
+      credit("cr-storyboard", "p-ishihara", "絵コンテ"),
+      credit("cr-episode-director", "p-kawanami", "演出"),
+      credit("cr-animation", "p-hikiyama", "作画監督"),
+    ],
   },
-  {
-    ...base("e-tv1-02", "旋律の…聖調理人（プリーステス）", [], []),
-    kind: "episode",
-    seriesId: "s-tv1",
-    label: "第2話",
-    sortKey: 20,
-    airedOn: null,
-  },
-  {
-    ...base("e-tv1-last", "終天の契約（エターナル・エンゲージ）", [], []),
-    kind: "episode",
-    seriesId: "s-tv1",
-    label: "最終話",
-    sortKey: 120,
-    airedOn: null,
-  },
-  {
-    ...base("e-kai", "小鳥遊六花・改 〜劇場版 中二病でも恋がしたい！〜", [], [
+  episodeShell(
+    "e-tv1-02",
+    "旋律の…聖調理人（プリーステス）",
+    [],
+    "s-tv1",
+    "第2話",
+    20,
+    null,
+  ),
+  episodeShell(
+    "e-tv1-last",
+    "終天の契約（エターナル・エンゲージ）",
+    [],
+    "s-tv1",
+    "最終話",
+    120,
+    null,
+  ),
+  episodeShell(
+    "e-kai",
+    "小鳥遊六花・改 〜劇場版 中二病でも恋がしたい！〜",
+    [
       text(
         "b-kai",
         "総集編。1期の話とは別ページにして、シリーズのリンクで総集編とつなぐ。",
       ),
-    ]),
-    kind: "episode",
-    seriesId: "s-kai",
-    label: "本編",
-    sortKey: 10,
-    airedOn: "2013-09-14",
-  },
-  {
-    ...base("e-tom", "映画 中二病でも恋がしたい！ -Take On Me-", [], [
+    ],
+    "s-kai",
+    "本編",
+    10,
+    "2013-09-14",
+  ),
+  episodeShell(
+    "e-tom",
+    "映画 中二病でも恋がしたい！ -Take On Me-",
+    [
       text(
         "b-tom",
         "劇場版はシリーズと話を分けず、この1ページに書く。前のシリーズは戀。",
       ),
-    ]),
-    kind: "episode",
-    seriesId: "s-tom",
-    label: "本編",
-    sortKey: 10,
-    airedOn: "2018-01-06",
-  },
-];
-
-const seriesLinks: SeriesLink[] = [
-  {
-    id: "sl-tv1-ren",
-    fromSeriesId: "s-tv1",
-    toSeriesId: "s-ren",
-    kind: "sequel",
-    note: "テレビシリーズ第2期",
-  },
-  {
-    id: "sl-tv1-kai",
-    fromSeriesId: "s-tv1",
-    toSeriesId: "s-kai",
-    kind: "compilation",
-    note: "1期を六花の視点で再構成し、新作映像を足した総集編",
-  },
-  {
-    id: "sl-ren-tom",
-    fromSeriesId: "s-ren",
-    toSeriesId: "s-tom",
-    kind: "sequel",
-    note: "戀の続き。高校3年への進級前",
-  },
-];
-
-const seriesCharacters: SeriesCharacter[] = [
-  {
-    id: "sc-yuuta",
-    seriesId: "s-tv1",
-    characterId: "c-yuuta",
-    role: "主人公",
-    note: "",
-  },
-  {
-    id: "sc-rikka",
-    seriesId: "s-tv1",
-    characterId: "c-rikka",
-    role: "ヒロイン",
-    note: "",
-  },
-  {
-    id: "sc-shinka",
-    seriesId: "s-tv1",
-    characterId: "c-shinka",
-    role: "クラスメイト",
-    note: "",
-  },
-];
-
-const episodeAppearances: EpisodeAppearance[] = [
-  {
-    id: "ap-e1-yuuta",
-    episodeId: "e-tv1-01",
-    characterId: "c-yuuta",
-    note: "見本では第1話の出演を二人に限っている",
-  },
-  {
-    id: "ap-e1-rikka",
-    episodeId: "e-tv1-01",
-    characterId: "c-rikka",
-    note: "",
-  },
-];
-
-const credits: Credit[] = [
-  credit("cr-director", "p-ishihara", "s-tv1", null, null, "監督"),
-  credit("cr-series", "p-hanada", "s-tv1", null, null, "シリーズ構成"),
-  credit("cr-design", "p-ikeda", "s-tv1", null, null, "キャラクターデザイン"),
-  credit("cr-script", "p-hanada", "s-tv1", "e-tv1-01", null, "脚本"),
-  credit("cr-storyboard", "p-ishihara", "s-tv1", "e-tv1-01", null, "絵コンテ"),
-  credit("cr-episode-director", "p-kawanami", "s-tv1", "e-tv1-01", null, "演出"),
-  credit("cr-animation", "p-hikiyama", "s-tv1", "e-tv1-01", null, "作画監督"),
-  credit("cr-yuuta", "p-fukuyama", "s-tv1", null, "c-yuuta", "声優"),
-  credit("cr-rikka", "p-uchida", "s-tv1", null, "c-rikka", "声優"),
-  credit("cr-shinka", "p-akasaki", "s-tv1", null, "c-shinka", "声優"),
+    ],
+    "s-tom",
+    "本編",
+    10,
+    "2018-01-06",
+  ),
 ];
 
 const songs: Song[] = [
   {
     ...base("song-op", "Sparkling Daydream", [], []),
     kind: "song",
+    credits: [songCredit("so-op", "歌", "ZAQ")],
   },
   {
     ...base("song-ed", "INSIDE IDENTITY", [], []),
     kind: "song",
+    credits: [songCredit("so-ed", "歌", "Black Raison d'être")],
   },
 ];
-
-const songPlacements: SongPlacement[] = [
-  {
-    id: "sp-op",
-    songId: "song-op",
-    seriesId: "s-tv1",
-    usage: "opening",
-    episodeIds: [],
-    note: "",
-  },
-  {
-    id: "sp-ed",
-    songId: "song-ed",
-    seriesId: "s-tv1",
-    usage: "ending",
-    episodeIds: [],
-    note: "",
-  },
-];
-
-const songCredits: SongCredit[] = [
-  {
-    id: "so-op",
-    songId: "song-op",
-    role: "歌",
-    note: "",
-    creditName: "ZAQ",
-  },
-  {
-    id: "so-ed",
-    songId: "song-ed",
-    role: "歌",
-    note: "",
-    creditName: "Black Raison d'être",
-  },
-];
-
-function credit(
-  id: string,
-  personId: string,
-  seriesId: string,
-  episodeId: string | null,
-  characterId: string | null,
-  role: string,
-): Credit {
-  return {
-    id,
-    personId,
-    seriesId,
-    episodeId,
-    characterId,
-    role,
-    note: "",
-  };
-}
 
 export const exampleDb: Database = {
   series,
@@ -315,13 +296,6 @@ export const exampleDb: Database = {
     { ...base("p-akasaki", "赤崎千夏", [], []), kind: "person" },
   ],
   songs,
-  seriesLinks,
-  episodeLinks: [],
-  seriesCharacters,
-  episodeAppearances,
-  credits,
-  songPlacements,
-  songCredits,
 };
 
 export const sampleFocus = {

@@ -81,7 +81,16 @@ describe("buildEpisodeSidePanel", () => {
     expect(second.characters.map((item) => item.name)).toContain("丹生谷森夏");
   });
 
-  it("声優はスタッフ一覧に混ぜず、曲とシリーズ担当は出す", () => {
+  it("キャラクターデザインはシリーズの配列、絵コンテは話の配列", () => {
+    const series = exampleDb.series.find((item) => item.id === "s-tv1");
+    const episode = exampleDb.episodes.find((item) => item.id === "e-tv1-01");
+    expect(series?.credits.map((item) => item.role)).toContain(
+      "キャラクターデザイン",
+    );
+    expect(episode?.credits.map((item) => item.role)).toContain("絵コンテ");
+    expect(episode?.credits.some((item) => item.role === "キャラクターデザイン")).toBe(
+      false,
+    );
     expect(first.credits.map((item) => item.role)).toEqual([
       "監督",
       "シリーズ構成",
@@ -91,6 +100,9 @@ describe("buildEpisodeSidePanel", () => {
       "演出",
       "作画監督",
     ]);
+  });
+
+  it("声優はスタッフ一覧に混ぜず、曲とシリーズ担当は出す", () => {
     expect(first.credits.find((item) => item.role === "監督")?.scope).toBe(
       "series",
     );

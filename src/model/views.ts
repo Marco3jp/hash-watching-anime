@@ -225,22 +225,18 @@ export function buildEpisodeSidePanel(
   );
   const siblings = episodesIn(db, series.id);
   const index = siblings.findIndex((item) => item.id === episode.id);
-  const appearances = db.episodeAppearances.filter(
-    (item) => item.episodeId === episode.id,
-  );
-  const characterSource = appearances.length > 0 ? "appearance" : "roster";
+  const characterSource =
+    episode.appearances.length > 0 ? "appearance" : "roster";
   const characterRows =
     characterSource === "appearance"
-      ? appearances.map((item) => ({
+      ? episode.appearances.map((item) => ({
           characterId: item.characterId,
           note: item.note,
         }))
-      : db.seriesCharacters
-          .filter((item) => item.seriesId === series.id)
-          .map((item) => ({
-            characterId: item.characterId,
-            note: item.note,
-          }));
+      : series.characters.map((item) => ({
+          characterId: item.characterId,
+          note: item.note,
+        }));
 
   return {
     episode,
@@ -249,31 +245,21 @@ export function buildEpisodeSidePanel(
     previous: index > 0 ? siblings[index - 1] : null,
     next:
       index >= 0 && index < siblings.length - 1 ? siblings[index + 1] : null,
-    relatedSeries: relatedSeries(db, series.id),
-    continuedFrom: db.episodeLinks
-      .filter((item) => item.toEpisodeId === episode.id)
-      .map((item) => ({
-        episode: must(
-          db.episodes.find((candidate) => candidate.id === item.fromEpisodeId),
-          item.fromEpisodeId,
-        ),
-        note: item.note,
-      })),
-    continuesTo: db.episodeLinks
-      .filter((item) => item.fromEpisodeId === episode.id)
-      .map((item) => ({
-        episode: must(
-          db.episodes.find((candidate) => candidate.id === item.toEpisodeId),
-          item.toEpisodeId,
-        ),
-        note: item.note,
-      })),
+    relatedSeries: relatedSeries(db, series),
+    continuedFrom: incomingEpisodeLinks(db, episode),
+    continuesTo: episode.links.map((link) => ({
+      episode: must(
+        db.episodes.find((candidate) => candidate.id === link.toEpisodeId),
+        link.toEpisodeId,
+      ),
+      note: link.note,
+    })),
     characters: characterRows.map((row) =>
-      sideCharacter(db, series.id, episode.id, row.characterId, row.note),
+      sideCharacter(db, series, episode, row.characterId, row.note),
     ),
     characterSource,
-    songs: placementsFor(db, series.id, episode.id),
-    credits: staffCredits(db, series.id, episode.id),
+    songs: songUses(db, series, episode.id),
+    credits: staffCredits(db, series, episode),
     mentions: mentionsInBody(episode.body, pagesOf(db)),
   };
 }
@@ -289,21 +275,14 @@ export function buildSeriesSidePanel(
   return {
     series,
     episodes: episodesIn(db, series.id),
-    relatedSeries: relatedSeries(db, series.id),
-    characters: db.seriesCharacters
-      .filter((item) => item.seriesId === series.id)
-      .map((item) =>
-        sideCharacter(db, series.id, null, item.characterId, item.note),
-      ),
-    songs: placementsFor(db, series.id, null),
-    credits: db.credits
-      .filter(
-        (item) =>
-          item.seriesId === series.id &&
-          item.episodeId === null &&
-          item.characterId === null,
-      )
-      .map((item) => toSideCredit(db, item)),
+    relatedSeries: relatedSeries(db, series),
+    characters: series.characters.map((item) =>
+      sideCharacter(db, series, null, item.characterId, item.note),
+    ),
+    songs: songUses(db, series, null),
+    credits: series.credits
+      .filter((item) => item.characterId === null)
+      .map((item) => toSideCredit(db, item, "series")),
     mentions: mentionsInBody(series.body, pagesOf(db)),
     open: openSeries(db, series.id),
   };
@@ -319,34 +298,28 @@ export function buildCharacterSidePanel(
   );
   return {
     character,
-    roster: db.seriesCharacters
-      .filter((item) => item.characterId === character.id)
-      .map((item) => ({
-        series: must(
-          db.series.find((series) => series.id === item.seriesId),
-          item.seriesId,
-        ),
-        role: item.role,
-        note: item.note,
-        cast: sideCharacter(db, item.seriesId, null, character.id, item.note)
-          .cast,
-      })),
-    appearances: db.episodeAppearances
-      .filter((item) => item.characterId === character.id)
-      .map((item) => {
-        const episode = must(
-          db.episodes.find((candidate) => candidate.id === item.episodeId),
-          item.episodeId,
-        );
-        return {
+    roster: db.series.flatMap((series) =>
+      series.characters
+        .filter((item) => item.characterId === character.id)
+        .map((item) => ({
+          series,
+          role: item.role,
+          note: item.note,
+          cast: sideCharacter(db, series, null, character.id, item.note).cast,
+        })),
+    ),
+    appearances: db.episodes.flatMap((episode) =>
+      episode.appearances
+        .filter((item) => item.characterId === character.id)
+        .map((item) => ({
           episode,
           series: must(
             db.series.find((series) => series.id === episode.seriesId),
             episode.seriesId,
           ),
           note: item.note,
-        };
-      }),
+        })),
+    ),
     mentions: mentionsInBody(character.body, pagesOf(db)),
   };
 }
@@ -359,42 +332,35 @@ export function buildPersonSidePanel(
     db.people.find((item) => item.id === personId),
     personId,
   );
+  const credits: PersonCreditView[] = [];
+  for (const series of db.series) {
+    for (const credit of series.credits) {
+      if (credit.personId !== person.id) continue;
+      credits.push(personCredit(db, series, null, credit));
+    }
+  }
+  for (const episode of db.episodes) {
+    const series = must(
+      db.series.find((item) => item.id === episode.seriesId),
+      episode.seriesId,
+    );
+    for (const credit of episode.credits) {
+      if (credit.personId !== person.id) continue;
+      credits.push(personCredit(db, series, episode, credit));
+    }
+  }
   return {
     person,
-    credits: db.credits
-      .filter((item) => item.personId === person.id)
-      .map((item) => ({
-        series: must(
-          db.series.find((series) => series.id === item.seriesId),
-          item.seriesId,
-        ),
-        role: item.role,
-        scope: item.episodeId === null ? "series" : "episode",
-        episode:
-          item.episodeId === null
-            ? null
-            : must(
-                db.episodes.find((episode) => episode.id === item.episodeId),
-                item.episodeId,
-              ),
-        character:
-          item.characterId === null
-            ? null
-            : must(
-                db.characters.find(
-                  (character) => character.id === item.characterId,
-                ),
-                item.characterId,
-              ),
-        note: item.note,
-      })),
-    songCredits: db.songCredits
-      .filter((item) => item.personId === person.id)
-      .map((item) => ({
-        song: must(db.songs.find((song) => song.id === item.songId), item.songId),
-        role: item.role,
-        note: item.note,
-      })),
+    credits,
+    songCredits: db.songs.flatMap((song) =>
+      song.credits
+        .filter((credit) => credit.personId === person.id)
+        .map((credit) => ({
+          song,
+          role: credit.role,
+          note: credit.note,
+        })),
+    ),
     mentions: mentionsInBody(person.body, pagesOf(db)),
   };
 }
@@ -403,25 +369,22 @@ export function buildSongSidePanel(db: Database, songId: string): SongSidePanel 
   const song = must(db.songs.find((item) => item.id === songId), songId);
   return {
     song,
-    credits: db.songCredits
-      .filter((item) => item.songId === song.id)
-      .map((item) => songCreditView(db, item)),
-    placements: db.songPlacements
-      .filter((item) => item.songId === song.id)
-      .map((item) => ({
-        series: must(
-          db.series.find((series) => series.id === item.seriesId),
-          item.seriesId,
-        ),
-        usageText: usageLabel[item.usage],
-        episodes: item.episodeIds.map((episodeId) =>
-          must(
-            db.episodes.find((episode) => episode.id === episodeId),
-            episodeId,
+    credits: song.credits.map((credit) => songCreditView(db, credit)),
+    placements: db.series.flatMap((series) =>
+      series.songs
+        .filter((item) => item.songId === song.id)
+        .map((item) => ({
+          series,
+          usageText: usageLabel[item.usage],
+          episodes: item.episodeIds.map((episodeId) =>
+            must(
+              db.episodes.find((episode) => episode.id === episodeId),
+              episodeId,
+            ),
           ),
-        ),
-        note: item.note,
-      })),
+          note: item.note,
+        })),
+    ),
     mentions: mentionsInBody(song.body, pagesOf(db)),
   };
 }
@@ -443,107 +406,84 @@ export function integrityProblems(db: Database): string[] {
   if (new Set(pageIds).size !== pageIds.length) {
     problems.push("ページ id がページ種別をまたいで重複している");
   }
-  unique(problems, "seriesLinks", db.seriesLinks);
-  unique(problems, "episodeLinks", db.episodeLinks);
-  unique(problems, "seriesCharacters", db.seriesCharacters);
-  unique(problems, "episodeAppearances", db.episodeAppearances);
-  unique(problems, "credits", db.credits);
-  unique(problems, "songPlacements", db.songPlacements);
-  unique(problems, "songCredits", db.songCredits);
 
+  const sortKeys = new Set<string>();
   for (const episode of db.episodes) {
     if (!seriesIds.has(episode.seriesId)) {
       problems.push(`Episode ${episode.id} の seriesId が無い`);
     }
-  }
-
-  const sortKeys = new Set<string>();
-  for (const episode of db.episodes) {
     const key = `${episode.seriesId}:${episode.sortKey}`;
-    if (sortKeys.has(key)) {
-      problems.push(`sortKey が重複: ${key}`);
-    }
+    if (sortKeys.has(key)) problems.push(`sortKey が重複: ${key}`);
     sortKeys.add(key);
-  }
-
-  for (const link of db.seriesLinks) {
-    if (!seriesIds.has(link.fromSeriesId) || !seriesIds.has(link.toSeriesId)) {
-      problems.push(`SeriesLink ${link.id} の端点が無い`);
+    checkChildIds(problems, `Episode ${episode.id} links`, episode.links);
+    checkChildIds(problems, `Episode ${episode.id} appearances`, episode.appearances);
+    checkChildIds(problems, `Episode ${episode.id} credits`, episode.credits);
+    const seenAppearance = new Set<string>();
+    for (const appearance of episode.appearances) {
+      if (!characterIds.has(appearance.characterId)) {
+        problems.push(`Appearance ${appearance.id} のキャラクターが無い`);
+      }
+      if (seenAppearance.has(appearance.characterId)) {
+        problems.push(`出演が重複: ${episode.id}:${appearance.characterId}`);
+      }
+      seenAppearance.add(appearance.characterId);
     }
-    if (link.fromSeriesId === link.toSeriesId) {
-      problems.push(`SeriesLink ${link.id} が自己リンク`);
-    }
-  }
-
-  for (const link of db.episodeLinks) {
-    if (
-      !episodeIds.has(link.fromEpisodeId) ||
-      !episodeIds.has(link.toEpisodeId)
-    ) {
-      problems.push(`EpisodeLink ${link.id} の端点が無い`);
-    }
-    if (link.fromEpisodeId === link.toEpisodeId) {
-      problems.push(`EpisodeLink ${link.id} が自己リンク`);
-    }
-  }
-
-  const roster = new Set<string>();
-  for (const row of db.seriesCharacters) {
-    if (!seriesIds.has(row.seriesId) || !characterIds.has(row.characterId)) {
-      problems.push(`SeriesCharacter ${row.id} の参照が無い`);
-    }
-    const key = `${row.seriesId}:${row.characterId}`;
-    if (roster.has(key)) problems.push(`名簿が重複: ${key}`);
-    roster.add(key);
-  }
-
-  const seenAppearance = new Set<string>();
-  for (const row of db.episodeAppearances) {
-    if (!episodeIds.has(row.episodeId) || !characterIds.has(row.characterId)) {
-      problems.push(`EpisodeAppearance ${row.id} の参照が無い`);
-    }
-    const key = `${row.episodeId}:${row.characterId}`;
-    if (seenAppearance.has(key)) problems.push(`出演が重複: ${key}`);
-    seenAppearance.add(key);
-  }
-
-  for (const credit of db.credits) {
-    if (!personIds.has(credit.personId) || !seriesIds.has(credit.seriesId)) {
-      problems.push(`Credit ${credit.id} の参照が無い`);
-    }
-    if (credit.characterId !== null && !characterIds.has(credit.characterId)) {
-      problems.push(`Credit ${credit.id} の characterId が無い`);
-    }
-    if (credit.episodeId !== null) {
-      const episode = db.episodes.find((item) => item.id === credit.episodeId);
-      if (!episode) {
-        problems.push(`Credit ${credit.id} の episodeId が無い`);
-      } else if (episode.seriesId !== credit.seriesId) {
-        problems.push(`Credit ${credit.id} の話とシリーズが食い違っている`);
+    for (const link of episode.links) {
+      if (!episodeIds.has(link.toEpisodeId)) {
+        problems.push(`EpisodeLink ${link.id} の先が無い`);
+      }
+      if (link.toEpisodeId === episode.id) {
+        problems.push(`EpisodeLink ${link.id} が自己リンク`);
       }
     }
+    checkCredits(problems, episode.credits, personIds, characterIds);
   }
 
-  for (const placement of db.songPlacements) {
-    if (!songIds.has(placement.songId) || !seriesIds.has(placement.seriesId)) {
-      problems.push(`SongPlacement ${placement.id} の参照が無い`);
+  for (const series of db.series) {
+    checkChildIds(problems, `Series ${series.id} links`, series.links);
+    checkChildIds(problems, `Series ${series.id} characters`, series.characters);
+    checkChildIds(problems, `Series ${series.id} credits`, series.credits);
+    checkChildIds(problems, `Series ${series.id} songs`, series.songs);
+    const roster = new Set<string>();
+    for (const row of series.characters) {
+      if (!characterIds.has(row.characterId)) {
+        problems.push(`SeriesCharacter ${row.id} のキャラクターが無い`);
+      }
+      if (roster.has(row.characterId)) {
+        problems.push(`名簿が重複: ${series.id}:${row.characterId}`);
+      }
+      roster.add(row.characterId);
     }
-    for (const episodeId of placement.episodeIds) {
-      const episode = db.episodes.find((item) => item.id === episodeId);
-      if (!episode) {
-        problems.push(`SongPlacement ${placement.id} の話が無い`);
-      } else if (episode.seriesId !== placement.seriesId) {
-        problems.push(`SongPlacement ${placement.id} の話が別シリーズ`);
+    for (const link of series.links) {
+      if (!seriesIds.has(link.toSeriesId)) {
+        problems.push(`SeriesLink ${link.id} の先が無い`);
+      }
+      if (link.toSeriesId === series.id) {
+        problems.push(`SeriesLink ${link.id} が自己リンク`);
       }
     }
+    for (const song of series.songs) {
+      if (!songIds.has(song.songId)) {
+        problems.push(`SongUse ${song.id} の曲が無い`);
+      }
+      for (const episodeId of song.episodeIds) {
+        const episode = db.episodes.find((item) => item.id === episodeId);
+        if (!episode) {
+          problems.push(`SongUse ${song.id} の話が無い`);
+        } else if (episode.seriesId !== series.id) {
+          problems.push(`SongUse ${song.id} の話が別シリーズ`);
+        }
+      }
+    }
+    checkCredits(problems, series.credits, personIds, characterIds);
   }
 
-  for (const credit of db.songCredits) {
-    if (!songIds.has(credit.songId)) {
-      problems.push(`SongCredit ${credit.id} の曲が無い`);
-    }
-    if (credit.personId !== undefined && !personIds.has(credit.personId)) {
-      problems.push(`SongCredit ${credit.id} の人物が無い`);
+  for (const song of db.songs) {
+    checkChildIds(problems, `Song ${song.id} credits`, song.credits);
+    for (const credit of song.credits) {
+      if (credit.personId !== undefined && !personIds.has(credit.personId)) {
+        problems.push(`SongCredit ${credit.id} の人物が無い`);
+      }
     }
   }
 
@@ -557,25 +497,22 @@ function episodesIn(db: Database, seriesId: string): Episode[] {
     .sort((a, b) => a.sortKey - b.sortKey);
 }
 
-function relatedSeries(db: Database, seriesId: string): LinkedSeries[] {
-  const linked: LinkedSeries[] = [];
-  for (const link of db.seriesLinks) {
-    if (link.fromSeriesId === seriesId) {
+function relatedSeries(db: Database, series: Series): LinkedSeries[] {
+  const linked: LinkedSeries[] = series.links.map((link) => ({
+    series: must(
+      db.series.find((item) => item.id === link.toSeriesId),
+      link.toSeriesId,
+    ),
+    direction: "outgoing" as const,
+    label: outgoingLabel[link.kind],
+    note: link.note,
+  }));
+  for (const other of db.series) {
+    if (other.id === series.id) continue;
+    for (const link of other.links) {
+      if (link.toSeriesId !== series.id) continue;
       linked.push({
-        series: must(
-          db.series.find((item) => item.id === link.toSeriesId),
-          link.toSeriesId,
-        ),
-        direction: "outgoing",
-        label: outgoingLabel[link.kind],
-        note: link.note,
-      });
-    } else if (link.toSeriesId === seriesId) {
-      linked.push({
-        series: must(
-          db.series.find((item) => item.id === link.fromSeriesId),
-          link.fromSeriesId,
-        ),
+        series: other,
         direction: "incoming",
         label: incomingLabel[link.kind],
         note: link.note,
@@ -585,10 +522,25 @@ function relatedSeries(db: Database, seriesId: string): LinkedSeries[] {
   return linked;
 }
 
+function incomingEpisodeLinks(
+  db: Database,
+  episode: Episode,
+): { episode: Episode; note: string }[] {
+  const incoming: { episode: Episode; note: string }[] = [];
+  for (const other of db.episodes) {
+    if (other.id === episode.id) continue;
+    for (const link of other.links) {
+      if (link.toEpisodeId !== episode.id) continue;
+      incoming.push({ episode: other, note: link.note });
+    }
+  }
+  return incoming;
+}
+
 function sideCharacter(
   db: Database,
-  seriesId: string,
-  episodeId: string | null,
+  series: Series,
+  episode: Episode | null,
   characterId: string,
   note: string,
 ): SideCharacter {
@@ -596,17 +548,19 @@ function sideCharacter(
     db.characters.find((item) => item.id === characterId),
     characterId,
   );
-  const roster = db.seriesCharacters.find(
-    (item) => item.seriesId === seriesId && item.characterId === characterId,
+  const roster = series.characters.find(
+    (item) => item.characterId === characterId,
   );
-  const cast = db.credits
-    .filter(
-      (item) =>
-        item.characterId === characterId &&
-        item.seriesId === seriesId &&
-        (item.episodeId === null || item.episodeId === episodeId),
-    )
-    .map((item) => ({
+  const castCredits = [
+    ...series.credits,
+    ...(episode?.credits ?? []),
+  ].filter((item) => item.characterId === characterId);
+  return {
+    characterId,
+    name: character.title,
+    role: roster?.role ?? "",
+    note,
+    cast: castCredits.map((item) => ({
       personName: must(
         db.people.find((person) => person.id === item.personId),
         item.personId,
@@ -614,41 +568,37 @@ function sideCharacter(
       personId: item.personId,
       role: item.role,
       note: item.note,
-    }));
-  return {
-    characterId,
-    name: character.title,
-    role: roster?.role ?? "",
-    note,
-    cast,
+    })),
   };
 }
 
-function placementsFor(
+function songUses(
   db: Database,
-  seriesId: string,
+  series: Series,
   episodeId: string | null,
 ): SideSong[] {
-  return db.songPlacements
+  return series.songs
     .filter((item) => {
-      if (item.seriesId !== seriesId) return false;
       if (episodeId === null) return true;
       return (
         item.episodeIds.length === 0 || item.episodeIds.includes(episodeId)
       );
     })
-    .map((item) => ({
-      songId: item.songId,
-      title: must(db.songs.find((song) => song.id === item.songId), item.songId)
-        .title,
-      usage: item.usage,
-      usageText: usageLabel[item.usage],
-      episodeIds: item.episodeIds,
-      note: item.note,
-      credits: db.songCredits
-        .filter((credit) => credit.songId === item.songId)
-        .map((credit) => songCreditView(db, credit)),
-    }));
+    .map((item) => {
+      const song = must(
+        db.songs.find((candidate) => candidate.id === item.songId),
+        item.songId,
+      );
+      return {
+        songId: item.songId,
+        title: song.title,
+        usage: item.usage,
+        usageText: usageLabel[item.usage],
+        episodeIds: item.episodeIds,
+        note: item.note,
+        credits: song.credits.map((credit) => songCreditView(db, credit)),
+      };
+    });
 }
 
 function songCreditView(db: Database, credit: SongCredit): SideSongCredit {
@@ -667,24 +617,24 @@ function songCreditView(db: Database, credit: SongCredit): SideSongCredit {
 
 function staffCredits(
   db: Database,
-  seriesId: string,
-  episodeId: string,
+  series: Series,
+  episode: Episode,
 ): SideCredit[] {
-  const seriesLevel = db.credits.filter(
-    (item) =>
-      item.seriesId === seriesId &&
-      item.episodeId === null &&
-      item.characterId === null,
-  );
-  const episodeLevel = db.credits.filter(
-    (item) => item.episodeId === episodeId && item.characterId === null,
-  );
-  return [...seriesLevel, ...episodeLevel].map((item) =>
-    toSideCredit(db, item),
-  );
+  return [
+    ...series.credits
+      .filter((item) => item.characterId === null)
+      .map((item) => toSideCredit(db, item, "series")),
+    ...episode.credits
+      .filter((item) => item.characterId === null)
+      .map((item) => toSideCredit(db, item, "episode")),
+  ];
 }
 
-function toSideCredit(db: Database, credit: Credit): SideCredit {
+function toSideCredit(
+  db: Database,
+  credit: Credit,
+  scope: "series" | "episode",
+): SideCredit {
   return {
     personId: credit.personId,
     personName: must(
@@ -692,7 +642,29 @@ function toSideCredit(db: Database, credit: Credit): SideCredit {
       credit.personId,
     ).title,
     role: credit.role,
-    scope: credit.episodeId === null ? "series" : "episode",
+    scope,
+    note: credit.note,
+  };
+}
+
+function personCredit(
+  db: Database,
+  series: Series,
+  episode: Episode | null,
+  credit: Credit,
+): PersonCreditView {
+  return {
+    series,
+    role: credit.role,
+    scope: episode === null ? "series" : "episode",
+    episode,
+    character:
+      credit.characterId === null
+        ? null
+        : must(
+            db.characters.find((item) => item.id === credit.characterId),
+            credit.characterId,
+          ),
     note: credit.note,
   };
 }
@@ -701,13 +673,29 @@ function ids(rows: { id: string }[]): Set<string> {
   return new Set(rows.map((row) => row.id));
 }
 
-function unique(
+function checkChildIds(
   problems: string[],
   label: string,
   rows: { id: string }[],
 ): void {
   if (new Set(rows.map((row) => row.id)).size !== rows.length) {
     problems.push(`${label} の id が重複している`);
+  }
+}
+
+function checkCredits(
+  problems: string[],
+  credits: Credit[],
+  personIds: Set<string>,
+  characterIds: Set<string>,
+): void {
+  for (const credit of credits) {
+    if (!personIds.has(credit.personId)) {
+      problems.push(`Credit ${credit.id} の人物が無い`);
+    }
+    if (credit.characterId !== null && !characterIds.has(credit.characterId)) {
+      problems.push(`Credit ${credit.id} の characterId が無い`);
+    }
   }
 }
 
