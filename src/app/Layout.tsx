@@ -19,14 +19,19 @@ export function Layout() {
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b border-line bg-surface">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <Link to={paths.home} className="flex items-center gap-2 font-semibold text-theme">
+          {/* 見せる名前は #watching-anime。# を印にして、実況のハッシュタグに見せる。保存キーやパッケージ名は hash-watching-anime のまま */}
+          <Link
+            to={paths.home}
+            aria-label="#watching-anime"
+            className="flex items-center gap-1.5 font-semibold text-theme"
+          >
             <span
               aria-hidden
               className="inline-flex size-6 items-center justify-center rounded-md bg-theme text-sm font-bold text-on-theme"
             >
               #
             </span>
-            hash-watching-anime
+            <span aria-hidden>watching-anime</span>
           </Link>
           <nav className="flex gap-4 text-sm">
             <NavLink to={paths.home} end className={navClass}>
