@@ -34,8 +34,8 @@ function CharacterView({ db, character }: { db: Database; character: Character }
     <PageFrame
       kicker="キャラクター"
       header={
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="min-w-[min(100%,20rem)] flex-1">
             <TitleFields
               page={character}
               onTitle={(title) => update({ title })}
@@ -58,7 +58,7 @@ function CharacterView({ db, character }: { db: Database; character: Character }
             {panel.roster.length === 0 ? (
               <p className="text-sm text-muted">まだどの名簿にもいない。</p>
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {panel.roster.map((item) => (
                   <li key={item.series.id}>
                     <PageLink page={item.series} />
@@ -74,7 +74,7 @@ function CharacterView({ db, character }: { db: Database; character: Character }
             {panel.appearances.length === 0 ? (
               <p className="text-sm text-muted">話ごとの出演はまだ無い。</p>
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {panel.appearances.map((item) => (
                   <li key={item.episode.id}>
                     <PageLink page={item.episode} />

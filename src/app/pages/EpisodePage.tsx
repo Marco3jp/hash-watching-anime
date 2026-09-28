@@ -57,16 +57,16 @@ function EpisodeView({
       kicker={panel.collapsed ? "劇場版・単発" : "話"}
       header={
         <>
-          <div className="flex items-start gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-3">
-                <div className="w-28 shrink-0">
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="min-w-[min(100%,20rem)] flex-1">
+              <div className="mb-1 flex items-center gap-4">
+                <div className="w-24 shrink-0">
                   <InlineText
                     label="話数"
                     value={episode.label}
                     placeholder="第1話"
                     onCommit={(label) => update({ label })}
-                    className="font-mono text-sm text-seal"
+                    className="h-7 font-semibold text-theme"
                   />
                 </div>
                 <input
@@ -74,7 +74,7 @@ function EpisodeView({
                   aria-label="放送日"
                   value={episode.airedOn ?? ""}
                   onChange={(event) => update({ airedOn: event.target.value || null })}
-                  className="bg-transparent font-mono text-xs text-muted outline-none"
+                  className="field field-sm font-mono text-muted"
                 />
               </div>
               <TitleFields
@@ -138,10 +138,7 @@ function PageLinkToSeries({
   children: ReactNode;
 }) {
   return (
-    <Link
-      to={paths.series(series.id)}
-      className="text-sm text-series underline decoration-series/30 underline-offset-2 hover:decoration-series"
-    >
+    <Link to={paths.series(series.id)} className="link text-sm">
       {children}
     </Link>
   );
@@ -149,8 +146,8 @@ function PageLinkToSeries({
 
 function Neighbor({ caption, episode }: { caption: string; episode: Episode | null }) {
   return (
-    <p className="text-sm">
-      <span className="mr-2 font-mono text-[11px] text-muted">{caption}</span>
+    <p className="flex items-baseline gap-3 text-sm">
+      <span className="w-4 shrink-0 text-xs text-muted">{caption}</span>
       {episode ? <PageLink page={episode} /> : <span className="text-muted">なし</span>}
     </p>
   );
@@ -190,15 +187,15 @@ function EpisodeCharacters({
     });
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {panel.characterSource === "appearance" ? (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {episode.appearances.map((row) => {
             const character = characterById.get(row.characterId);
             if (!character) return null;
             return (
               <li key={row.id}>
-                <div className="flex items-baseline gap-2">
+                <div className="flex items-center gap-2">
                   <PageLink page={character} />
                   <span className="min-w-0 flex-1 truncate text-xs text-muted">
                     {roleOf(character.id)}
@@ -239,19 +236,19 @@ function EpisodeCharacters({
       {rosterRest.length > 0 ? (
         <div>
           {panel.characterSource === "appearance" ? (
-            <p className="mb-1 text-xs text-muted">名簿から出演に足す</p>
+            <p className="label mb-2">名簿から出演に足す</p>
           ) : null}
-          <ul className="space-y-1.5">
+          <ul className="space-y-1">
             {rosterRest.map((row) => {
               const character = characterById.get(row.characterId) as Character;
               return (
-                <li key={row.id} className="flex items-baseline gap-2">
+                <li key={row.id} className="flex items-center gap-2">
                   <PageLink page={character} />
                   <span className="min-w-0 flex-1 truncate text-xs text-muted">{row.role}</span>
                   <button
                     type="button"
                     onClick={() => appear(character.id)}
-                    className="shrink-0 rounded border border-line px-1.5 text-[11px] text-muted hover:border-ink hover:text-ink"
+                    className="btn btn-sm"
                   >
                     出演に付ける
                   </button>

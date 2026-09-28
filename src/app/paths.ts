@@ -1,4 +1,4 @@
-import type { Database, Page } from "../model/types.ts";
+import type { Database, Page, SeriesUnit } from "../model/types.ts";
 import { openSeries } from "../model/views.ts";
 
 export const paths = {
@@ -24,6 +24,11 @@ export const kindLabel: Record<Page["kind"], string> = {
   series: "シリーズ",
   episode: "話",
   character: "キャラクター",
+};
+
+export const unitLabel: Record<SeriesUnit, string> = {
+  serial: "複数話",
+  single: "劇場版・単発",
 };
 
 /** 話は「第1話 題名」。シリーズとキャラクターは題名だけ */

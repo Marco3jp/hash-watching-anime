@@ -73,8 +73,8 @@ export function BodyEditor({ page }: { page: Page }) {
   const pageIds = new Set(pagesOf(db).map((item) => item.id));
 
   return (
-    <div className="space-y-1">
-      <p className="mb-2 text-right text-[11px] text-muted/80">
+    <div className="space-y-0.5">
+      <p className="mb-3 text-xs text-muted">
         @ で名前をリンク。リンクは Ctrl（Mac は ⌘）を押しながらクリックで開く
       </p>
       {blocks.map((block, index) => (
@@ -248,7 +248,7 @@ function BlockRow({
   };
 
   return (
-    <div className="group grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3">
+    <div className="group -mx-2 grid grid-cols-[5rem_minmax(0,1fr)] gap-3 rounded-md px-2 py-0.5 focus-within:bg-surface hover:bg-surface">
       <input
         aria-label="時刻"
         value={time}
@@ -261,11 +261,11 @@ function BlockRow({
           if (event.nativeEvent.isComposing) return;
           if (event.key === "Enter") event.currentTarget.blur();
         }}
-        className={`h-7 min-w-0 bg-transparent font-mono text-xs leading-7 text-seal outline-none placeholder:text-line focus:placeholder:text-muted/60 ${
+        className={`h-7 min-w-0 bg-transparent font-mono text-xs leading-7 text-theme outline-none placeholder:text-muted/50 ${
           time ? "" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
         }`}
       />
-      <div className="relative">
+      <div className="relative leading-7">
         <div
           className="pointer-events-none min-h-7 whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
         >
@@ -307,7 +307,7 @@ function BlockRow({
             const pageId = linkAt(block.runs, event.currentTarget.selectionStart);
             if (pageId && isLink(pageId)) onOpen(pageId);
           }}
-          className="absolute inset-0 z-10 block h-full w-full resize-none overflow-hidden bg-transparent p-0 text-transparent caret-ink outline-none whitespace-pre-wrap break-words [overflow-wrap:anywhere] placeholder:text-muted/70 selection:bg-[#e7c3b4]/60"
+          className="absolute inset-0 z-10 block h-full w-full resize-none overflow-hidden bg-transparent p-0 text-transparent caret-fg outline-none whitespace-pre-wrap break-words [overflow-wrap:anywhere] placeholder:text-muted/70 selection:bg-theme/30"
         />
       </div>
     </div>
@@ -333,7 +333,7 @@ function Backdrop({
       run.pageId && isLink(run.pageId) ? (
         <span
           key={`${prefix}${index}`}
-          className="rounded-sm bg-series/10 text-series shadow-[inset_0_-1px_0_rgba(27,51,88,0.4)]"
+          className="rounded-sm bg-theme/15 text-theme shadow-[inset_0_-1px_0_var(--theme)]"
         >
           {run.text}
         </span>

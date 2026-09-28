@@ -3,9 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { paths } from "./paths.ts";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
-  `shrink-0 rounded-full px-2.5 py-1 ${
-    isActive ? "bg-ink text-paper-2" : "text-muted hover:bg-paper-2 hover:text-ink"
-  }`;
+  `shrink-0 font-medium ${isActive ? "text-theme-dark" : "text-theme hover:text-theme-dark"}`;
 
 export function Layout() {
   const navigate = useNavigate();
@@ -18,13 +16,19 @@ export function Layout() {
   };
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b border-line/80 bg-paper/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3">
-          <Link to={paths.home} className="font-serif text-lg font-semibold">
+    <div className="flex min-h-screen flex-col">
+      <header className="sticky top-0 z-40 border-b border-line bg-surface">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+          <Link to={paths.home} className="flex items-center gap-2 font-semibold text-theme">
+            <span
+              aria-hidden
+              className="inline-flex size-6 items-center justify-center rounded-md bg-theme text-sm font-bold text-on-theme"
+            >
+              #
+            </span>
             hash-watching-anime
           </Link>
-          <nav className="flex gap-1 text-sm">
+          <nav className="flex gap-4 text-sm">
             <NavLink to={paths.home} end className={navClass}>
               ホーム
             </NavLink>
@@ -32,25 +36,26 @@ export function Layout() {
               書き出しと読み込み
             </NavLink>
           </nav>
-          <form onSubmit={onSearch} className="ml-auto flex gap-2" role="search">
+          <form
+            onSubmit={onSearch}
+            className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto"
+            role="search"
+          >
             <input
               type="search"
               aria-label="検索"
               value={text}
               onChange={(event) => setText(event.target.value)}
               placeholder="題名、別名、本文で探す"
-              className="w-56 rounded-md border border-line bg-paper-2 px-2.5 py-1 text-sm outline-none focus:border-seal"
+              className="field flex-1 sm:w-60 sm:flex-none"
             />
-            <button
-              type="submit"
-              className="rounded-md border border-ink bg-ink px-3 py-1 text-sm text-paper-2"
-            >
+            <button type="submit" className="btn">
               探す
             </button>
           </form>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 pb-24 pt-8">
+      <main className="mx-auto box-border w-full max-w-6xl flex-1 px-4 pt-8 pb-24">
         <Outlet />
       </main>
     </div>
