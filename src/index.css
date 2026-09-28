@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  --font-serif: "Shippori Mincho", "Yu Mincho", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-paper: #f3ecdf;
+  --color-paper-2: #fffaf3;
+  --color-ink: #1d1814;
+  --color-muted: #6d6258;
+  --color-line: #e0d5c4;
+  --color-seal: #9d2c2c;
+  --color-series: #1b3358;
+  --color-episode: #8a4b22;
+  --color-character: #7c3450;
+  --color-person: #1f5348;
+  --color-song: #1c5962;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(157, 44, 44, 0.06), transparent 50%),
+    var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-seal);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #e7c3b4;
+}
