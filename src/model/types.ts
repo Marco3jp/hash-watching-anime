@@ -2,11 +2,15 @@
  * アニメ実況メモの保存モデル。
  *
  * ページを持つ実体は Series / Episode / Character / Person / Song。
- * それ以外はページ同士をつなぐレコードで、単体では開かない。
- * 参照は id だけを持つ。相手の中身は埋め込まない。
+ * そのページを開いたときに横へ出す一覧は、ページ自身の配列。
+ * 話のページのキャラクターデザインは series.credits、絵コンテは episode.credits。
+ * Credit をシリーズの外に置いて、あとから seriesId で引く形にはしない。
  *
- * 本文中の [[名前]] は保存時に id へ解決しない。
- * 表示するときに title と aliases から引き、ページ側の改名に追従する。
+ * 人物ページの担当一覧や、シリーズの「前作」は逆方向。
+ * 各ページの配列を歩く。逆引き用のテーブルは持たない。
+ *
+ * 相手ページの中身はコピーしない。参照は id。
+ * 本文の [[名前]] も保存時に id へ固めず、表示するときに title と aliases から引く。
  */
 
 export interface MemoBody {
@@ -46,6 +50,17 @@ export type SeriesUnit = "serial" | "single";
 export interface Series extends PageFields {
   kind: "series";
   unit: SeriesUnit;
+  /** このシリーズから伸びる前後。逆の「前作」は相手の links を見る */
+  links: SeriesLink[];
+  /** シリーズの名簿 */
+  characters: SeriesCharacter[];
+  /**
+   * シリーズ担当と声優。
+   * キャラクターデザイン、監督はここ。絵コンテなど話だけの担当は Episode.credits。
+   */
+  credits: Credit[];
+  /** このシリーズでの曲の使い方 */
+  songs: SongUse[];
 }
 
 export interface Episode extends PageFields {
@@ -57,6 +72,15 @@ export interface Episode extends PageFields {
   sortKey: number;
   /** 放送日・公開日。不明なら null。YYYY-MM-DD */
   airedOn: string | null;
+  /** 別シリーズの話への明示的な続き。隣の話は sortKey から求める */
+  links: EpisodeLink[];
+  /**
+   * この話に出ている、という印。
+   * 空なら、サイドパネルはシリーズの名簿へ戻す。
+   */
+  appearances: Appearance[];
+  /** この話だけの担当。脚本、絵コンテ、演出、作画監督 */
+  credits: Credit[];
 }
 
 export interface Character extends PageFields {
@@ -69,14 +93,16 @@ export interface Person extends PageFields {
 
 export interface Song extends PageFields {
   kind: "song";
+  /** 歌、作詞、作曲。どの作品で使うかは Series.songs */
+  credits: SongCredit[];
 }
 
 export type Page = Series | Episode | Character | Person | Song;
 
 /**
- * シリーズ同士の有向リンク。
- * 劇場版かどうかはここではなく Series.unit で表す。
- * 逆方向（前作、総集編の元）は保存せず、表示のときに裏返す。
+ * シリーズから別のシリーズへの有向リンク。
+ * 親は Series.links。from は親自身なので持たない。
+ * 劇場版かどうかはここではなく Series.unit。
  */
 export type SeriesLinkKind =
   | "sequel"
@@ -87,70 +113,53 @@ export type SeriesLinkKind =
 
 export interface SeriesLink {
   id: string;
-  fromSeriesId: string;
   toSeriesId: string;
   kind: SeriesLinkKind;
   note: string;
 }
 
-/**
- * 話同士の明示リンク。
- * 同じシリーズで隣り合う話は sortKey から求めるので、ここには置かない。
- * シリーズをまたいで「この話の続きがこちら」と言いたいときだけ足す。
- */
 export type EpisodeLinkKind = "continues";
 
 export interface EpisodeLink {
   id: string;
-  fromEpisodeId: string;
   toEpisodeId: string;
   kind: EpisodeLinkKind;
   note: string;
 }
 
-/** シリーズの名簿。話ごとの出演とは分ける */
 export interface SeriesCharacter {
   id: string;
-  seriesId: string;
   characterId: string;
   /** 「主人公」など。決まった語彙にはしない */
   role: string;
   note: string;
 }
 
-/**
- * その話に出ている、という印。
- * 1件も無い話のサイドパネルは、シリーズ名簿へ戻す。
- */
-export interface EpisodeAppearance {
+export interface Appearance {
   id: string;
-  episodeId: string;
   characterId: string;
   note: string;
 }
 
 /**
- * 人物の担当。
- * episodeId が null ならシリーズ担当。
+ * 人物の担当。親は Series.credits か Episode.credits。
  * characterId があるときは声優など、キャラに紐づく担当。
+ * スタッフ一覧には出さない。
  */
 export interface Credit {
   id: string;
   personId: string;
-  seriesId: string;
-  episodeId: string | null;
   characterId: string | null;
-  /** 「監督」「脚本」「声優」 */
+  /** 「監督」「脚本」「声優」「絵コンテ」 */
   role: string;
   note: string;
 }
 
 export type SongUsage = "opening" | "ending" | "insert" | "image" | "other";
 
-export interface SongPlacement {
+export interface SongUse {
   id: string;
   songId: string;
-  seriesId: string;
   usage: SongUsage;
   /**
    * 空ならシリーズ全体。
@@ -162,7 +171,6 @@ export interface SongPlacement {
 
 interface SongCreditBase {
   id: string;
-  songId: string;
   /** 「歌」「作詞」「作曲」 */
   role: string;
   note: string;
@@ -179,11 +187,4 @@ export interface Database {
   characters: Character[];
   people: Person[];
   songs: Song[];
-  seriesLinks: SeriesLink[];
-  episodeLinks: EpisodeLink[];
-  seriesCharacters: SeriesCharacter[];
-  episodeAppearances: EpisodeAppearance[];
-  credits: Credit[];
-  songPlacements: SongPlacement[];
-  songCredits: SongCredit[];
 }

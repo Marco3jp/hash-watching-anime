@@ -58,10 +58,13 @@ export function TypeMap() {
           ))}
           <ol className="space-y-2 text-sm">
             <li>Series 1つに Episode が並ぶ。並びは sortKey。</li>
-            <li>Series 同士は SeriesLink。話同士の明示的な続きは EpisodeLink。</li>
-            <li>Character は SeriesCharacter で名簿に入り、EpisodeAppearance で話に出る。</li>
-            <li>Person は Credit でシリーズか話かキャラクターに付く。</li>
-            <li>Song は SongPlacement で作品に付き、SongCredit で名義が付く。</li>
+            <li>前後は series.links。話への明示的な続きは episode.links。</li>
+            <li>名簿は series.characters。出演の印は episode.appearances。</li>
+            <li>
+              キャラクターデザインは series.credits。絵コンテは episode.credits。話を開いたらこの二つを並べる。
+            </li>
+            <li>曲の使い方は series.songs。名義は song.credits。</li>
+            <li>人物ページの担当一覧だけ、各ページの credits を歩く。</li>
             <li>本文の [[名前]] は id を保存しない。表示するときに title と aliases で引く。</li>
           </ol>
         </div>
