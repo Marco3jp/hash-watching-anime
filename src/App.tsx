@@ -28,7 +28,7 @@ export default function App() {
       <header className="sticky top-0 z-10 border-b border-line/80 bg-paper/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
           <a href="#top" className="font-serif text-lg font-semibold">
-            実況メモの型
+            hash-watching-anime
           </a>
           <nav className="flex gap-1 overflow-x-auto text-sm">
             {nav.map((item) => (
