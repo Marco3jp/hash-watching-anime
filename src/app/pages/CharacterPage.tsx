@@ -12,7 +12,7 @@ import {
   SideBlock,
 } from "../components/PageFrame.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
-import { paths } from "../paths.ts";
+import { paths, seriesName } from "../paths.ts";
 import { useDatabase, useStore } from "../store.ts";
 
 export function CharacterPage() {
@@ -79,7 +79,7 @@ function CharacterView({ db, character }: { db: Database; character: Character }
                   <li key={item.episode.id}>
                     <PageLink page={item.episode} />
                     <span className="block text-xs text-muted">
-                      {item.series.title}
+                      {seriesName(item.series)}
                       {item.note ? `・${item.note}` : ""}
                     </span>
                   </li>

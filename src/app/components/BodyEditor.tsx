@@ -22,7 +22,7 @@ import { createCharacter, setBody } from "../../model/records.ts";
 import { hasExactTitle, suggestPages } from "../../model/search.ts";
 import type { Database, MemoBlock, Page, TextRun } from "../../model/types.ts";
 import { pagesOf } from "../../model/views.ts";
-import { pathOf } from "../paths.ts";
+import { pathOf, seriesName } from "../paths.ts";
 import { useDatabase, useStore } from "../store.ts";
 import { SuggestList } from "./SuggestList.tsx";
 import { handleSuggestKey, type SuggestOption } from "./suggest.ts";
@@ -379,7 +379,8 @@ function orderForSuggest(db: Database, page: Page): Page[] {
 
 function hintOf(db: Database, page: Page): string | undefined {
   if (page.kind === "episode") {
-    return db.series.find((item) => item.id === page.seriesId)?.title;
+    const series = db.series.find((item) => item.id === page.seriesId);
+    return series ? seriesName(series) : undefined;
   }
   if (page.aliases.length > 0) return page.aliases.join("、");
   return undefined;

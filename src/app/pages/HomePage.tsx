@@ -7,7 +7,7 @@ import {
 } from "../../model/records.ts";
 import type { SeriesUnit } from "../../model/types.ts";
 import { episodesIn } from "../../model/views.ts";
-import { paths, pathOf, unitLabel } from "../paths.ts";
+import { paths, pathOf, seriesName, unitLabel } from "../paths.ts";
 import { UnitToggle } from "../components/UnitToggle.tsx";
 import { useDatabase, useStore } from "../store.ts";
 
@@ -36,7 +36,7 @@ export function HomePage() {
                   >
                     <span className="flex items-baseline gap-3">
                       <span className="min-w-0 flex-1 font-medium text-theme group-hover:text-theme-dark">
-                        {series.title}
+                        {seriesName(series)}
                       </span>
                       <span className="shrink-0 text-xs text-muted">
                         {unitLabel[series.unit]}・{episodes.length} 話

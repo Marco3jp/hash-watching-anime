@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { searchPages } from "../../model/search.ts";
-import { kindLabel, pageName, pathOf } from "../paths.ts";
+import { kindLabel, pageName, pathOf, seriesName } from "../paths.ts";
 import { useDatabase } from "../store.ts";
 
 export function SearchPage() {
@@ -34,7 +34,7 @@ export function SearchPage() {
                     </span>
                     <span className="text-xs text-muted">
                       {kindLabel[page.kind]}
-                      {series ? `・${series.title}` : ""}
+                      {series ? `・${seriesName(series)}` : ""}
                     </span>
                   </span>
                   {excerpt ? (

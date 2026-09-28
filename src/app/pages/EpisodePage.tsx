@@ -24,7 +24,7 @@ import {
 } from "../components/PageFrame.tsx";
 import { PageSuggest } from "../components/PageSuggest.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
-import { pageName, paths } from "../paths.ts";
+import { pageName, paths, seriesName } from "../paths.ts";
 import { useDatabase, useStore } from "../store.ts";
 
 export function EpisodePage() {
@@ -109,7 +109,7 @@ function EpisodeView({
       side={
         <>
           <SideBlock title="シリーズ">
-            <PageLinkToSeries series={series}>{series.title}</PageLinkToSeries>
+            <PageLinkToSeries series={series}>{seriesName(series)}</PageLinkToSeries>
           </SideBlock>
           {panel.collapsed ? null : (
             <SideBlock title="前後の話">

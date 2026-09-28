@@ -31,8 +31,17 @@ export const unitLabel: Record<SeriesUnit, string> = {
   single: "劇場版・単発",
 };
 
-/** 話は「第1話 題名」。シリーズとキャラクターは題名だけ */
+/**
+ * シリーズ名は、実況のハッシュタグのように # を付けて出す。保存する題名には付けない。
+ * 題名が # で始まっていれば、重ねて付けない
+ */
+export function seriesName(series: Pick<Page, "title">): string {
+  return /^[#＃]/.test(series.title) ? series.title : `#${series.title}`;
+}
+
+/** 話は「第1話 題名」。シリーズは「#題名」。キャラクターは題名だけ */
 export function pageName(page: Page): string {
+  if (page.kind === "series") return seriesName(page);
   return page.kind === "episode" && page.label
     ? `${page.label} ${page.title}`
     : page.title;

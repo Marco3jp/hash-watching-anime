@@ -53,6 +53,7 @@ function SeriesView({ db, series }: { db: Database; series: Series }) {
           <div className="min-w-[min(100%,20rem)] flex-1">
             <TitleFields
               page={series}
+              prefix="#"
               onTitle={(title) => update({ title })}
               onAliases={(aliases) => update({ aliases })}
             />
