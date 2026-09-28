@@ -1,0 +1,97 @@
+import { useNavigate, useParams } from "react-router-dom";
+import { deleteCharacter, updateCharacter } from "../../model/records.ts";
+import type { Character, Database } from "../../model/types.ts";
+import { buildCharacterSidePanel } from "../../model/views.ts";
+import { BodyEditor } from "../components/BodyEditor.tsx";
+import {
+  DeleteButton,
+  LinkedPages,
+  Missing,
+  PageFrame,
+  PageLink,
+  SideBlock,
+} from "../components/PageFrame.tsx";
+import { TitleFields } from "../components/TitleFields.tsx";
+import { paths } from "../paths.ts";
+import { useDatabase, useStore } from "../store.ts";
+
+export function CharacterPage() {
+  const { id } = useParams<"id">();
+  const db = useDatabase();
+  const character = db.characters.find((item) => item.id === id);
+  if (!character) return <Missing what="このキャラクター" />;
+  return <CharacterView key={character.id} db={db} character={character} />;
+}
+
+function CharacterView({ db, character }: { db: Database; character: Character }) {
+  const store = useStore();
+  const navigate = useNavigate();
+  const panel = buildCharacterSidePanel(db, character.id);
+  const update = (patch: Parameters<typeof updateCharacter>[2]) =>
+    store.update((draft) => updateCharacter(draft, character.id, patch));
+
+  return (
+    <PageFrame
+      kicker="キャラクター"
+      header={
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <TitleFields
+              page={character}
+              onTitle={(title) => update({ title })}
+              onAliases={(aliases) => update({ aliases })}
+            />
+          </div>
+          <DeleteButton
+            message={`「${character.title}」を消す。名簿と出演からも外れる。本文のリンクはただの文字になる。`}
+            onDelete={() => {
+              store.update((draft) => deleteCharacter(draft, character.id));
+              navigate(paths.home);
+            }}
+          />
+        </div>
+      }
+      body={<BodyEditor page={character} />}
+      side={
+        <>
+          <SideBlock title="名簿にいるシリーズ">
+            {panel.roster.length === 0 ? (
+              <p className="text-sm text-muted">まだどの名簿にもいない。</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {panel.roster.map((item) => (
+                  <li key={item.series.id}>
+                    <PageLink page={item.series} />
+                    {item.role ? (
+                      <span className="block text-xs text-muted">{item.role}</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SideBlock>
+          <SideBlock title="出演した話">
+            {panel.appearances.length === 0 ? (
+              <p className="text-sm text-muted">話ごとの出演はまだ無い。</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {panel.appearances.map((item) => (
+                  <li key={item.episode.id}>
+                    <PageLink page={item.episode} />
+                    <span className="block text-xs text-muted">
+                      {item.series.title}
+                      {item.note ? `・${item.note}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SideBlock>
+          <SideBlock title="本文のリンク">
+            <LinkedPages pages={panel.links} />
+          </SideBlock>
+        </>
+      }
+    />
+  );
+}

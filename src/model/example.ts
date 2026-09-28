@@ -7,7 +7,6 @@ import {
   createSeries,
   emptyDatabase,
 } from "./records.ts";
-import type { PageFocus } from "./views.ts";
 
 /**
  * 見本は『中二病でも恋がしたい！』周辺。
@@ -15,6 +14,7 @@ import type { PageFocus } from "./views.ts";
  * 第1話の出演は勇太と六花だけにしてあり、実際の画面に誰が映るかとは限らない。
  *
  * ページを作ってから、返ってきた id をシリーズや話へ入れる。
+ * アプリは空の LocalStorage から始まる。この見本はテストと、スクショのシードに使う。
  */
 
 function text(id: string, runs: TextRun[]): MemoBlock {
@@ -127,26 +127,3 @@ export function buildExample(): Database {
 }
 
 export const exampleDb = buildExample();
-
-export const sampleFocus: PageFocus = {
-  kind: "episode",
-  id: episodeIdByTitle("邂逅の…邪王真眼"),
-};
-
-export function episodeIdByTitle(title: string): string {
-  const episode = exampleDb.episodes.find((item) => item.title === title);
-  if (!episode) throw new Error(title);
-  return episode.id;
-}
-
-export function seriesIdByTitle(title: string): string {
-  const series = exampleDb.series.find((item) => item.title === title);
-  if (!series) throw new Error(title);
-  return series.id;
-}
-
-export function characterIdByTitle(title: string): string {
-  const character = exampleDb.characters.find((item) => item.title === title);
-  if (!character) throw new Error(title);
-  return character.id;
-}
