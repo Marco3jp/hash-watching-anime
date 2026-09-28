@@ -6,7 +6,7 @@ export function Premise() {
       id="premise"
       index="01"
       title="Sparkling Journey から持ってくるもの"
-      lead="読んだのは作品とタグの台帳。実況の本文も、シリーズの前後も、あそこには無い。だからリポジトリは分ける、が今の仮決め。"
+      lead="保存は LocalStorage。ページを作って id を受け取り、紐づけ先の配列へ入れる。IndexedDB は使っていない。"
     >
       <div className="grid gap-4 lg:grid-cols-2">
         <article className="rounded-lg border border-line bg-paper-2 p-5">
@@ -43,9 +43,7 @@ export function Premise() {
             <li>文字列で探せる。</li>
           </ul>
           <p className="mt-4 text-sm">
-            相手の中身はコピーしない。参照は id。そのページがいつも出す一覧は、ページ自身の配列に置く。スタッフを別テーブルから
-            seriesId で引く形にはしない。人物の担当一覧は、開いたときに各ページの
-            credits を歩く。
+            相手の中身はコピーしない。参照は id。見本も、create した戻り値の id を名簿や出演へ入れる。本文のリンクも同じ id。検索は、選ぶときのサジェスト。
           </p>
         </article>
       </div>
@@ -66,9 +64,9 @@ export function Premise() {
           <p className="font-mono text-[11px] tracking-widest text-white/70">
             このメモ
           </p>
-          <p className="mt-2 font-serif text-lg">ページと、id だけのリンク</p>
+          <p className="mt-2 font-serif text-lg">話と、キャラクターの id</p>
           <p className="mt-1 text-sm text-white/85">
-            話の本文が中心。シリーズの前後は有向。サイドパネルは保存値から組む。
+            実況の本体は話。サイドパネルに出すキャラクターは、話かシリーズに保存する。
           </p>
         </div>
       </div>

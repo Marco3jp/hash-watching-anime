@@ -1,25 +1,44 @@
 import type { ReactNode } from "react";
 import { RichText } from "../components/RichText.tsx";
-import { exampleDb } from "../model/example.ts";
+import {
+  characterIdByTitle,
+  episodeIdByTitle,
+  exampleDb,
+  seriesIdByTitle,
+} from "../model/example.ts";
 import type { MemoBody } from "../model/types.ts";
 import {
   buildCharacterSidePanel,
   buildEpisodeSidePanel,
-  buildPersonSidePanel,
   buildSeriesSidePanel,
-  buildSongSidePanel,
   pagesOf,
   type PageFocus,
 } from "../model/views.ts";
 
 const jumps: { label: string; focus: PageFocus }[] = [
-  { label: "第1話", focus: { kind: "episode", id: "e-tv1-01" } },
-  { label: "第2話", focus: { kind: "episode", id: "e-tv1-02" } },
-  { label: "1期のページ", focus: { kind: "series", id: "s-tv1" } },
-  { label: "六花", focus: { kind: "character", id: "c-rikka" } },
-  { label: "石原立也", focus: { kind: "person", id: "p-ishihara" } },
-  { label: "Sparkling Daydream", focus: { kind: "song", id: "song-op" } },
-  { label: "Take On Me", focus: { kind: "episode", id: "e-tom" } },
+  { label: "第1話", focus: { kind: "episode", id: episodeIdByTitle("邂逅の…邪王真眼") } },
+  {
+    label: "第2話",
+    focus: {
+      kind: "episode",
+      id: episodeIdByTitle("旋律の…聖調理人（プリーステス）"),
+    },
+  },
+  {
+    label: "1期のページ",
+    focus: { kind: "series", id: seriesIdByTitle("中二病でも恋がしたい！") },
+  },
+  {
+    label: "六花",
+    focus: { kind: "character", id: characterIdByTitle("小鳥遊六花") },
+  },
+  {
+    label: "Take On Me",
+    focus: {
+      kind: "episode",
+      id: episodeIdByTitle("映画 中二病でも恋がしたい！ -Take On Me-"),
+    },
+  },
 ];
 
 export function Screen({
@@ -55,8 +74,7 @@ export function Screen({
         <PageView focus={focus} onOpen={onOpen} />
       </div>
       <p className="mt-3 max-w-3xl text-sm text-muted">
-        第1話の本文は、公開されているあらすじに沿った見本。出演は勇太と六花だけにしてあり、実際の画面に誰が映るかとは限らない。1期の話は3本だけなので、第2話の次は最終話になる。本文の
-        [[名前]] を押すと、そのページへ移る。
+        第1話の本文は、公開されているあらすじに沿った見本。出演は勇太と六花だけにしてあり、実際の画面に誰が映るかとは限らない。1期の話は3本だけなので、第2話の次は最終話になる。本文中の名前は、サジェストで選んだページの id を保存している。
       </p>
     </div>
   );
@@ -75,13 +93,7 @@ function PageView({
   if (focus.kind === "series") {
     return <SeriesView id={focus.id} onOpen={onOpen} />;
   }
-  if (focus.kind === "character") {
-    return <CharacterView id={focus.id} onOpen={onOpen} />;
-  }
-  if (focus.kind === "person") {
-    return <PersonView id={focus.id} onOpen={onOpen} />;
-  }
-  return <SongView id={focus.id} onOpen={onOpen} />;
+  return <CharacterView id={focus.id} onOpen={onOpen} />;
 }
 
 function EpisodeView({
@@ -95,9 +107,7 @@ function EpisodeView({
   const roster = buildSeriesSidePanel(exampleDb, panel.series.id);
   const hidden = roster.characters.filter(
     (item) =>
-      !panel.characters.some(
-        (shown) => shown.characterId === item.characterId,
-      ),
+      !panel.characters.some((shown) => shown.characterId === item.characterId),
   );
   return (
     <Frame
@@ -119,60 +129,28 @@ function EpisodeView({
             >
               {panel.series.title}
             </OpenButton>
-            <ul className="mt-2 space-y-1">
-              {panel.relatedSeries.map((item) => (
-                <li key={item.series.id}>
-                  <span className="mr-2 text-xs text-seal">{item.label}</span>
-                  <OpenButton
-                    onClick={() =>
-                      onOpen({ kind: "series", id: item.series.id })
-                    }
-                  >
-                    {item.series.title}
-                  </OpenButton>
-                  {item.note ? (
-                    <span className="mt-0.5 block text-xs text-muted">
-                      {item.note}
-                    </span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
           </Block>
           <Block title="前後の話">
-            <div className="flex flex-col gap-1">
-              <Neighbor
-                caption="前"
-                label={panel.previous ? episodeLabel(panel.previous) : "なし"}
-                onClick={
-                  panel.previous
-                    ? () =>
-                        onOpen({ kind: "episode", id: panel.previous!.id })
-                    : undefined
-                }
-              />
-              <Neighbor
-                caption="次"
-                label={panel.next ? episodeLabel(panel.next) : "なし"}
-                onClick={
-                  panel.next
-                    ? () => onOpen({ kind: "episode", id: panel.next!.id })
-                    : undefined
-                }
-              />
-            </div>
-            {panel.continuesTo.length > 0 || panel.continuedFrom.length > 0 ? (
-              <ul className="mt-2 space-y-1 text-xs">
-                {panel.continuedFrom.map((item) => (
-                  <li key={item.episode.id}>続きの元 {item.episode.title}</li>
-                ))}
-                {panel.continuesTo.map((item) => (
-                  <li key={item.episode.id}>続き {item.episode.title}</li>
-                ))}
-              </ul>
-            ) : null}
+            <Neighbor
+              caption="前"
+              label={panel.previous ? episodeLabel(panel.previous) : "なし"}
+              onClick={
+                panel.previous
+                  ? () => onOpen({ kind: "episode", id: panel.previous!.id })
+                  : undefined
+              }
+            />
+            <Neighbor
+              caption="次"
+              label={panel.next ? episodeLabel(panel.next) : "なし"}
+              onClick={
+                panel.next
+                  ? () => onOpen({ kind: "episode", id: panel.next!.id })
+                  : undefined
+              }
+            />
           </Block>
-          <Block title="人物">
+          <Block title="キャラクター">
             <p className="mb-2 text-xs text-muted">
               {panel.characterSource === "appearance"
                 ? hidden.length > 0
@@ -182,13 +160,6 @@ function EpisodeView({
             </p>
             <CharacterList characters={panel.characters} onOpen={onOpen} />
           </Block>
-          <Block title="楽曲">
-            <SongList songs={panel.songs} onOpen={onOpen} />
-          </Block>
-          <Block title="スタッフ">
-            <CreditList credits={panel.credits} onOpen={onOpen} />
-          </Block>
-          <MentionList mentions={panel.mentions} onOpen={onOpen} />
         </>
       }
     />
@@ -226,9 +197,7 @@ function SeriesView({
                 {panel.episodes.map((episode) => (
                   <li key={episode.id}>
                     <OpenButton
-                      onClick={() =>
-                        onOpen({ kind: "episode", id: episode.id })
-                      }
+                      onClick={() => onOpen({ kind: "episode", id: episode.id })}
                     >
                       {episode.label} {episode.title}
                     </OpenButton>
@@ -237,34 +206,8 @@ function SeriesView({
               </ul>
             )}
           </Block>
-          <Block title="前後のシリーズ">
-            {panel.relatedSeries.length === 0 ? (
-              <p className="text-sm text-muted">リンクは無い。</p>
-            ) : (
-              <ul className="space-y-1">
-                {panel.relatedSeries.map((item) => (
-                  <li key={item.series.id}>
-                    <span className="mr-2 text-xs text-seal">{item.label}</span>
-                    <OpenButton
-                      onClick={() =>
-                        onOpen({ kind: "series", id: item.series.id })
-                      }
-                    >
-                      {item.series.title}
-                    </OpenButton>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Block>
-          <Block title="名簿">
+          <Block title="キャラクター">
             <CharacterList characters={panel.characters} onOpen={onOpen} />
-          </Block>
-          <Block title="楽曲">
-            <SongList songs={panel.songs} onOpen={onOpen} />
-          </Block>
-          <Block title="シリーズのスタッフ">
-            <CreditList credits={panel.credits} onOpen={onOpen} />
           </Block>
         </>
       }
@@ -297,17 +240,12 @@ function CharacterView({
                 {panel.roster.map((item) => (
                   <li key={item.series.id}>
                     <OpenButton
-                      onClick={() =>
-                        onOpen({ kind: "series", id: item.series.id })
-                      }
+                      onClick={() => onOpen({ kind: "series", id: item.series.id })}
                     >
                       {item.series.title}
                     </OpenButton>
                     <span className="mt-0.5 block text-xs text-muted">
                       {item.role}
-                      {item.cast.length > 0
-                        ? ` / ${item.cast.map((cast) => `${cast.role} ${cast.personName}`).join("、")}`
-                        : ""}
                     </span>
                   </li>
                 ))}
@@ -316,9 +254,7 @@ function CharacterView({
           </Block>
           <Block title="出演した話">
             {panel.appearances.length === 0 ? (
-              <p className="text-sm text-muted">
-                話ごとの出演はまだ無い。
-              </p>
+              <p className="text-sm text-muted">話ごとの出演はまだ無い。</p>
             ) : (
               <ul className="space-y-1">
                 {panel.appearances.map((item) => (
@@ -336,134 +272,6 @@ function CharacterView({
             )}
           </Block>
         </>
-      }
-    />
-  );
-}
-
-function PersonView({
-  id,
-  onOpen,
-}: {
-  id: string;
-  onOpen: (focus: PageFocus) => void;
-}) {
-  const panel = buildPersonSidePanel(exampleDb, id);
-  return (
-    <Frame
-      kicker="人物"
-      title={panel.person.title}
-      meta="作品を横断する1ページ"
-      body={panel.person.body}
-      onOpen={onOpen}
-      side={
-        <Block title="担当">
-          {panel.credits.length === 0 && panel.songCredits.length === 0 ? (
-            <p className="text-sm text-muted">担当はまだ無い。</p>
-          ) : (
-            <ul className="space-y-2">
-              {panel.songCredits.map((item) => (
-                <li key={item.song.id}>
-                  <span className="text-xs text-seal">{item.role}</span>
-                  <span className="mt-0.5 block">
-                    <OpenButton
-                      onClick={() => onOpen({ kind: "song", id: item.song.id })}
-                    >
-                      {item.song.title}
-                    </OpenButton>
-                  </span>
-                </li>
-              ))}
-              {panel.credits.map((item, index) => (
-                <li key={`${item.role}-${index}`}>
-                  <span className="text-xs text-seal">{item.role}</span>
-                  <span className="mt-0.5 block">
-                    <OpenButton
-                      onClick={() =>
-                        onOpen({ kind: "series", id: item.series.id })
-                      }
-                    >
-                      {item.series.title}
-                    </OpenButton>
-                    {item.episode ? (
-                      <>
-                        {" "}
-                        <OpenButton
-                          onClick={() =>
-                            onOpen({ kind: "episode", id: item.episode!.id })
-                          }
-                        >
-                          {item.episode.label}
-                        </OpenButton>
-                      </>
-                    ) : (
-                      <span className="text-xs text-muted"> シリーズ</span>
-                    )}
-                    {item.character ? (
-                      <>
-                        {" "}
-                        <OpenButton
-                          onClick={() =>
-                            onOpen({
-                              kind: "character",
-                              id: item.character!.id,
-                            })
-                          }
-                        >
-                          {item.character.title}
-                        </OpenButton>
-                      </>
-                    ) : null}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Block>
-      }
-    />
-  );
-}
-
-function SongView({
-  id,
-  onOpen,
-}: {
-  id: string;
-  onOpen: (focus: PageFocus) => void;
-}) {
-  const panel = buildSongSidePanel(exampleDb, id);
-  return (
-    <Frame
-      kicker="楽曲"
-      title={panel.song.title}
-      meta={panel.credits.map((item) => `${item.role} ${item.label}`).join(" / ")}
-      body={panel.song.body}
-      onOpen={onOpen}
-      side={
-        <Block title="使われている場所">
-          {panel.placements.length === 0 ? (
-            <p className="text-sm text-muted">まだ作品が無い。</p>
-          ) : (
-            <ul className="space-y-2">
-              {panel.placements.map((item) => (
-                <li key={item.series.id}>
-                  <span className="mr-2 text-xs text-seal">{item.usageText}</span>
-                  <OpenButton
-                    onClick={() => onOpen({ kind: "series", id: item.series.id })}
-                  >
-                    {item.series.title}
-                  </OpenButton>
-                  <span className="mt-0.5 block text-xs text-muted">
-                    {item.episodes.length === 0
-                      ? "シリーズ全体"
-                      : item.episodes.map((episode) => episode.label).join("、")}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Block>
       }
     />
   );
@@ -516,12 +324,12 @@ function Frame({
                       {block.at}
                     </p>
                     <p>
-                      <RichText text={block.text} pages={pages} onOpen={onOpen} />
+                      <RichText runs={block.runs} pages={pages} onOpen={onOpen} />
                     </p>
                   </div>
                 ) : (
                   <p key={block.id}>
-                    <RichText text={block.text} pages={pages} onOpen={onOpen} />
+                    <RichText runs={block.runs} pages={pages} onOpen={onOpen} />
                   </p>
                 ),
               )}
@@ -590,12 +398,7 @@ function CharacterList({
   characters,
   onOpen,
 }: {
-  characters: {
-    characterId: string;
-    name: string;
-    role: string;
-    cast: { personId: string; personName: string; role: string }[];
-  }[];
+  characters: { characterId: string; name: string; role: string }[];
   onOpen: (focus: PageFocus) => void;
 }) {
   if (characters.length === 0) {
@@ -610,125 +413,12 @@ function CharacterList({
           >
             {item.name}
           </OpenButton>
-          <span className="mt-0.5 block text-xs text-muted">
-            {item.role}
-            {item.cast.map((cast) => (
-              <span key={cast.personId}>
-                {" / "}
-                {cast.role}{" "}
-                <OpenButton
-                  onClick={() => onOpen({ kind: "person", id: cast.personId })}
-                >
-                  {cast.personName}
-                </OpenButton>
-              </span>
-            ))}
-          </span>
+          {item.role ? (
+            <span className="mt-0.5 block text-xs text-muted">{item.role}</span>
+          ) : null}
         </li>
       ))}
     </ul>
-  );
-}
-
-function SongList({
-  songs,
-  onOpen,
-}: {
-  songs: {
-    songId: string;
-    title: string;
-    usageText: string;
-    episodeIds: string[];
-    credits: { role: string; label: string }[];
-  }[];
-  onOpen: (focus: PageFocus) => void;
-}) {
-  if (songs.length === 0) {
-    return <p className="text-sm text-muted">まだ無い。</p>;
-  }
-  return (
-    <ul className="space-y-2">
-      {songs.map((song) => (
-        <li key={song.songId}>
-          <span className="mr-2 text-xs text-seal">{song.usageText}</span>
-          <OpenButton onClick={() => onOpen({ kind: "song", id: song.songId })}>
-            {song.title}
-          </OpenButton>
-          <span className="mt-0.5 block text-xs text-muted">
-            {song.episodeIds.length === 0 ? "シリーズ全体" : "この話"}
-            {song.credits.length > 0
-              ? ` / ${song.credits.map((credit) => `${credit.role} ${credit.label}`).join("、")}`
-              : ""}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function CreditList({
-  credits,
-  onOpen,
-}: {
-  credits: {
-    personId: string;
-    personName: string;
-    role: string;
-    scope: "series" | "episode";
-  }[];
-  onOpen: (focus: PageFocus) => void;
-}) {
-  if (credits.length === 0) {
-    return <p className="text-sm text-muted">まだ無い。</p>;
-  }
-  return (
-    <ul className="space-y-1">
-      {credits.map((credit, index) => (
-        <li key={`${credit.personId}-${credit.role}-${index}`} className="text-sm">
-          <span className="text-muted">{credit.role}</span>{" "}
-          <OpenButton
-            onClick={() => onOpen({ kind: "person", id: credit.personId })}
-          >
-            {credit.personName}
-          </OpenButton>
-          <span className="ml-1 text-xs text-muted">
-            {credit.scope === "series" ? "シリーズ" : "この話"}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function MentionList({
-  mentions,
-  onOpen,
-}: {
-  mentions: { raw: string; pageId: string | null }[];
-  onOpen: (focus: PageFocus) => void;
-}) {
-  const pages = pagesOf(exampleDb);
-  return (
-    <Block title="本文から触れているページ">
-      <ul className="space-y-1">
-        {mentions.map((mention) => {
-          const page = pages.find((item) => item.id === mention.pageId);
-          return (
-            <li key={mention.raw} className="text-sm">
-              {page ? (
-                <OpenButton
-                  onClick={() => onOpen({ kind: page.kind, id: page.id })}
-                >
-                  {mention.raw}
-                </OpenButton>
-              ) : (
-                <span className="text-seal">{mention.raw}（未解決）</span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </Block>
   );
 }
 

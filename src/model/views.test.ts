@@ -1,68 +1,77 @@
 import { describe, expect, it } from "vitest";
-import type { Character, MemoBody } from "./types.ts";
 import { exampleDb } from "./example.ts";
+import {
+  addAppearance,
+  addSeriesCharacter,
+  createCharacter,
+  createEpisode,
+  createSeries,
+  emptyDatabase,
+} from "./records.ts";
 import {
   buildCharacterSidePanel,
   buildEpisodeSidePanel,
-  integrityProblems,
-  mentionsInBody,
+  linkedPages,
   openSeries,
 } from "./views.ts";
 
-const emptyBody: MemoBody = { blocks: [] };
-const stamp = "2026-09-28T00:00:00.000Z";
+const firstTitle = "邂逅の…邪王真眼";
+const secondTitle = "旋律の…聖調理人（プリーステス）";
+const lastTitle = "終天の契約（エターナル・エンゲージ）";
+const tv1Title = "中二病でも恋がしたい！";
+const tomTitle = "映画 中二病でも恋がしたい！ -Take On Me-";
+const kaiTitle = "小鳥遊六花・改 〜劇場版 中二病でも恋がしたい！〜";
 
-const duplicatedTitle: Character = {
-  kind: "character",
-  id: "dup-a",
-  title: "最終話",
-  aliases: [],
-  body: emptyBody,
-  createdAt: stamp,
-  updatedAt: stamp,
-};
+function episodeByTitle(title: string) {
+  const episode = exampleDb.episodes.find((item) => item.title === title);
+  if (!episode) throw new Error(title);
+  return episode;
+}
 
-const duplicatedTitleAgain: Character = {
-  ...duplicatedTitle,
-  id: "dup-b",
-};
-
-describe("exampleDb", () => {
-  it("参照がすべて解決する", () => {
-    expect(integrityProblems(exampleDb)).toEqual([]);
+describe("buildExample", () => {
+  it("ページを作ってから、その id を話とシリーズへ入れる", () => {
+    const episode = episodeByTitle(firstTitle);
+    const yuuta = exampleDb.characters.find((item) => item.title === "富樫勇太");
+    const rikka = exampleDb.characters.find((item) => item.title === "小鳥遊六花");
+    expect(episode.appearances.map((item) => item.characterId)).toEqual([
+      yuuta?.id,
+      rikka?.id,
+    ]);
+    const run = episode.body.blocks[0];
+    if (!run || run.type !== "timecode") throw new Error("本文がない");
+    expect(run.runs.find((item) => item.text === "小鳥遊六花")?.pageId).toBe(
+      rikka?.id,
+    );
   });
 });
 
 describe("openSeries", () => {
   it("複数話のシリーズはシリーズのページを開く", () => {
-    expect(openSeries(exampleDb, "s-tv1")).toEqual({
+    const series = exampleDb.series.find((item) => item.title === tv1Title);
+    expect(series).toBeDefined();
+    expect(openSeries(exampleDb, series!.id)).toEqual({
       kind: "series",
-      id: "s-tv1",
+      id: series!.id,
     });
   });
 
   it("話が1本の single は、その話を開く", () => {
-    expect(openSeries(exampleDb, "s-tom")).toEqual({
-      kind: "episode",
-      id: "e-tom",
-    });
-    expect(openSeries(exampleDb, "s-kai")).toEqual({
-      kind: "episode",
-      id: "e-kai",
-    });
+    const tom = exampleDb.series.find((item) => item.title === tomTitle);
+    const kai = exampleDb.series.find((item) => item.title === kaiTitle);
+    expect(openSeries(exampleDb, tom!.id).kind).toBe("episode");
+    expect(openSeries(exampleDb, kai!.id).kind).toBe("episode");
   });
 });
 
 describe("buildEpisodeSidePanel", () => {
-  const first = buildEpisodeSidePanel(exampleDb, "e-tv1-01");
-  const second = buildEpisodeSidePanel(exampleDb, "e-tv1-02");
-  const movie = buildEpisodeSidePanel(exampleDb, "e-tom");
+  const first = buildEpisodeSidePanel(exampleDb, episodeByTitle(firstTitle).id);
+  const second = buildEpisodeSidePanel(exampleDb, episodeByTitle(secondTitle).id);
 
   it("同じシリーズの sortKey から前後の話を求める", () => {
     expect(first.previous).toBeNull();
-    expect(first.next?.id).toBe("e-tv1-02");
-    expect(second.previous?.id).toBe("e-tv1-01");
-    expect(second.next?.id).toBe("e-tv1-last");
+    expect(first.next?.title).toBe(secondTitle);
+    expect(second.previous?.title).toBe(firstTitle);
+    expect(second.next?.title).toBe(lastTitle);
   });
 
   it("出演が1件でもあれば名簿ではなく出演を出す", () => {
@@ -71,9 +80,6 @@ describe("buildEpisodeSidePanel", () => {
       "富樫勇太",
       "小鳥遊六花",
     ]);
-    expect(first.characters[1]?.cast.map((item) => item.personName)).toEqual([
-      "内田真礼",
-    ]);
   });
 
   it("出演が無ければシリーズの名簿へ戻す", () => {
@@ -81,79 +87,72 @@ describe("buildEpisodeSidePanel", () => {
     expect(second.characters.map((item) => item.name)).toContain("丹生谷森夏");
   });
 
-  it("キャラクターデザインはシリーズの配列、絵コンテは話の配列", () => {
-    const series = exampleDb.series.find((item) => item.id === "s-tv1");
-    const episode = exampleDb.episodes.find((item) => item.id === "e-tv1-01");
-    expect(series?.credits.map((item) => item.role)).toContain(
-      "キャラクターデザイン",
-    );
-    expect(episode?.credits.map((item) => item.role)).toContain("絵コンテ");
-    expect(episode?.credits.some((item) => item.role === "キャラクターデザイン")).toBe(
-      false,
-    );
-    expect(first.credits.map((item) => item.role)).toEqual([
-      "監督",
-      "シリーズ構成",
-      "キャラクターデザイン",
-      "脚本",
-      "絵コンテ",
-      "演出",
-      "作画監督",
+  it("本文のリンクは保存した id のページだけを出す", () => {
+    expect(first.links.map((item) => item.title)).toEqual([
+      "富樫勇太",
+      "小鳥遊六花",
     ]);
   });
+});
 
-  it("声優はスタッフ一覧に混ぜず、曲とシリーズ担当は出す", () => {
-    expect(first.credits.find((item) => item.role === "監督")?.scope).toBe(
-      "series",
+describe("欠けた参照", () => {
+  it("キャラクターが無い出演は、サイドパネルに出さない", () => {
+    const db = emptyDatabase();
+    const series = createSeries(db, { title: "空の作品", unit: "serial" });
+    const episode = createEpisode(db, {
+      seriesId: series.id,
+      title: "第1話",
+      label: "第1話",
+      sortKey: 10,
+      airedOn: null,
+    });
+    addAppearance(db, episode.id, { characterId: "いない" });
+    const panel = buildEpisodeSidePanel(db, episode.id);
+    expect(panel.characterSource).toBe("appearance");
+    expect(panel.characters).toEqual([]);
+  });
+
+  it("本文の pageId にページが無ければ、リンク一覧にも入れない", () => {
+    const pages = linkedPages(
+      {
+        blocks: [
+          {
+            id: "b",
+            type: "text",
+            runs: [
+              { text: "残っている", pageId: "gone" },
+              { text: "ただの文字" },
+            ],
+          },
+        ],
+      },
+      [],
     );
-    expect(first.credits.find((item) => item.role === "脚本")?.scope).toBe(
-      "episode",
-    );
-    expect(first.songs.map((item) => item.usageText)).toEqual(["OP", "ED"]);
-  });
-
-  it("1期から続編と総集編の両方へつながる", () => {
-    expect(first.relatedSeries.map((item) => item.label)).toEqual([
-      "続編",
-      "総集編",
-    ]);
-  });
-
-  it("劇場版は1ページに畳み、前作は戀になる", () => {
-    expect(movie.collapsed).toBe(true);
-    expect(movie.relatedSeries.map((item) => item.label)).toEqual(["前作"]);
-    expect(movie.relatedSeries[0]?.series.id).toBe("s-ren");
-    expect(first.collapsed).toBe(false);
-  });
-
-  it("[[名前]] は title と aliases の両方が一意のときだけページになる", () => {
-    expect(first.mentions).toEqual([
-      { raw: "富樫勇太", pageId: "c-yuuta" },
-      { raw: "小鳥遊六花", pageId: "c-rikka" },
-      { raw: "Sparkling Daydream", pageId: "song-op" },
-      { raw: "INSIDE IDENTITY", pageId: "song-ed" },
-      { raw: "六花", pageId: "c-rikka" },
-      { raw: "ない名前", pageId: null },
-    ]);
+    expect(pages).toEqual([]);
   });
 });
 
 describe("buildCharacterSidePanel", () => {
   it("名簿と、出演の印が付いた話を出す", () => {
-    const panel = buildCharacterSidePanel(exampleDb, "c-rikka");
-    expect(panel.roster.map((item) => item.series.id)).toEqual(["s-tv1"]);
-    expect(panel.appearances.map((item) => item.episode.id)).toEqual([
-      "e-tv1-01",
+    const rikka = exampleDb.characters.find((item) => item.title === "小鳥遊六花");
+    const panel = buildCharacterSidePanel(exampleDb, rikka!.id);
+    expect(panel.roster.map((item) => item.series.title)).toEqual([tv1Title]);
+    expect(panel.appearances.map((item) => item.episode.title)).toEqual([
+      firstTitle,
     ]);
   });
 });
 
-describe("mentionsInBody", () => {
-  it("同じ名前が複数ページにあるとリンクにしない", () => {
-    const mentions = mentionsInBody(
-      { blocks: [{ id: "b", type: "text", text: "[[最終話]]" }] },
-      [duplicatedTitle, duplicatedTitleAgain],
-    );
-    expect(mentions).toEqual([{ raw: "最終話", pageId: null }]);
+describe("create してから紐づける", () => {
+  it("作ったキャラクターの id を、シリーズの名簿に入れる", () => {
+    const db = emptyDatabase();
+    const series = createSeries(db, { title: "作品", unit: "serial" });
+    const character = createCharacter(db, { title: "主人公" });
+    const row = addSeriesCharacter(db, series.id, {
+      characterId: character.id,
+      role: "主人公",
+    });
+    expect(row.characterId).toBe(character.id);
+    expect(series.characters).toEqual([row]);
   });
 });

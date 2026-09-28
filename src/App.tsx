@@ -52,8 +52,7 @@ export default function App() {
             アニメ実況メモの要件とデータ構造
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-muted">
-            書くアプリそのものではない。Sparkling Journey
-            を読んだうえで、ページの要件と、まだ揺れているところと、仮の型を並べた。
+            書くアプリそのものではない。1st は話、シリーズ、キャラクターのサイドパネルまで。
           </p>
         </div>
         <Premise />
@@ -62,8 +61,8 @@ export default function App() {
         <Section
           id="map"
           index="04"
-          title="中二病で辿るつながり"
-          lead="1期から戀へは続編、1期から六花・改へは総集編、戀から Take On Me へは続編。劇場版は single。カードを押すと、開く先のページが下に出る。"
+          title="シリーズと話の一覧"
+          lead="カードを押すと、下のページが変わる。single は話のページを開く。シリーズ同士の続編は、ここには無い。"
         >
           <ExampleMap focus={focus} onOpen={setFocus} />
         </Section>
@@ -71,7 +70,7 @@ export default function App() {
           id="screen"
           index="05"
           title="開いたページ"
-          lead="閲覧と編集は同じ面、という前提の見本。左が本文、右が関係するデータ。中身は保存しているレコードから組んでいる。"
+          lead="左が本文、右が保存してあるキャラクターと話の並び。右の欄自体は別レコードにしない。"
         >
           <Screen focus={focus} onOpen={setFocus} />
         </Section>
