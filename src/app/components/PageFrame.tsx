@@ -4,7 +4,10 @@ import type { Page } from "../../model/types.ts";
 import { kindLabel, pageName, pathOf } from "../paths.ts";
 import { useDatabase } from "../store.ts";
 
-/** 左が本文、右がサイドパネル。サイドパネルは views.ts が組んだものを並べる */
+/**
+ * 左が本文、右がサイドパネル。サイドパネルは views.ts が組んだものを並べる。
+ * 余白は 4 の倍数の段で揃える。見出しと中身は 12px、ブロック同士は 32px。
+ */
 export function PageFrame({
   kicker,
   header,
@@ -19,19 +22,19 @@ export function PageFrame({
   side: ReactNode;
 }) {
   return (
-    <article className="overflow-hidden rounded-xl border border-line bg-paper-2 shadow-[0_16px_40px_rgba(29,24,20,0.06)]">
-      <header className="border-b border-line px-4 py-4 sm:px-6">
-        <p className="font-mono text-[11px] tracking-[0.16em] text-muted">{kicker}</p>
+    <article>
+      <header>
+        <p className="label mb-1">{kicker}</p>
         {header}
       </header>
       {banner ? (
-        <div className="border-b border-line bg-[#f6e7dc] px-4 py-2 text-sm sm:px-6">
+        <div className="mt-4 rounded-lg border border-theme/40 bg-theme/10 px-4 py-2.5 text-sm">
           {banner}
         </div>
       ) : null}
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-h-96 px-4 py-5 sm:px-6">{body}</div>
-        <aside className="border-t border-line bg-[#f6f1e6] px-4 py-5 lg:border-t-0 lg:border-l">
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
+        <div className="min-w-0 lg:min-h-80">{body}</div>
+        <aside className="space-y-8 border-t border-line pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
           {side}
         </aside>
       </div>
@@ -47,8 +50,8 @@ export function SideBlock({
   children: ReactNode;
 }) {
   return (
-    <section className="mb-5">
-      <h2 className="mb-1.5 font-mono text-[11px] tracking-[0.14em] text-muted">{title}</h2>
+    <section>
+      <h2 className="label mb-3">{title}</h2>
       {children}
     </section>
   );
@@ -63,10 +66,7 @@ export function PageLink({
 }) {
   const db = useDatabase();
   return (
-    <Link
-      to={pathOf(db, page)}
-      className="text-sm text-series underline decoration-series/30 underline-offset-2 hover:decoration-series"
-    >
+    <Link to={pathOf(db, page)} className="link text-sm">
       {children ?? pageName(page)}
     </Link>
   );
@@ -78,13 +78,11 @@ export function LinkedPages({ pages }: { pages: Page[] }) {
     return <p className="text-sm text-muted">本文の @ で付けたリンクがここに並ぶ。</p>;
   }
   return (
-    <ul className="space-y-1">
+    <ul className="space-y-1.5">
       {pages.map((page) => (
-        <li key={page.id} className="flex items-baseline gap-2">
-          <span className="w-16 shrink-0 font-mono text-[10px] text-muted">
-            {kindLabel[page.kind]}
-          </span>
+        <li key={page.id} className="flex items-baseline gap-3">
           <PageLink page={page} />
+          <span className="text-xs text-muted">{kindLabel[page.kind]}</span>
         </li>
       ))}
     </ul>
@@ -104,7 +102,7 @@ export function DeleteButton({
       onClick={() => {
         if (window.confirm(message)) onDelete();
       }}
-      className="shrink-0 rounded-md border border-seal/40 px-2.5 py-0.5 text-xs text-seal hover:bg-seal/10"
+      className="btn btn-danger"
     >
       削除
     </button>
@@ -124,20 +122,22 @@ export function RemoveButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="shrink-0 rounded px-1 text-muted opacity-60 hover:bg-seal/10 hover:text-seal hover:opacity-100"
+      className="btn-icon hover:bg-danger/10 hover:text-danger"
     >
-      ×
+      <svg aria-hidden viewBox="0 0 12 12" className="size-3" stroke="currentColor" strokeWidth="1.5">
+        <path d="M2 2l8 8M10 2l-8 8" strokeLinecap="round" />
+      </svg>
     </button>
   );
 }
 
 export function Missing({ what }: { what: string }) {
   return (
-    <div className="rounded-xl border border-line bg-paper-2 px-6 py-10">
-      <p className="font-serif text-xl">{what}は無い。</p>
-      <p className="mt-2 text-sm text-muted">
+    <div className="py-10">
+      <h1 className="text-2xl font-semibold">{what}は無い。</h1>
+      <p className="mt-3 text-sm text-muted">
         消したか、別のブラウザで作ったページかもしれない。
-        <Link to="/" className="ml-1 text-series underline">
+        <Link to="/" className="link ml-1">
           ホームへ戻る
         </Link>
       </p>

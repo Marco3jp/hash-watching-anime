@@ -1,48 +1,130 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", sans-serif;
-  --font-serif: "Shippori Mincho", "Yu Mincho", serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --color-paper: #f3ecdf;
-  --color-paper-2: #fffaf3;
-  --color-ink: #1d1814;
-  --color-muted: #6d6258;
-  --color-line: #e0d5c4;
-  --color-seal: #9d2c2c;
-  --color-series: #1b3358;
-  --color-episode: #8a4b22;
-  --color-character: #7c3450;
-  --color-person: #1f5348;
-  --color-song: #1c5962;
+/*
+ * 色は Sparkling Journey に合わせる。暗い面が基本で、OS がライトならライトに切り替える。
+ * テーマカラーは空色の #29b6f6、hover と今いるページは #0288d1。
+ * 色は変数で持ち、ダークとライトで中身だけ差し替える。クラスは bg-bg、text-muted などで書く。
+ */
+@theme inline {
+  /*
+   * 字は index.html で読む Noto Sans JP に揃える。OS ごとの字の違いを無くすため。
+   * system-ui を先に置くと、日本語の無い環境では Web フォントを読む間に描いた豆腐が残ることがあった。
+   */
+  --font-sans: "Noto Sans JP", system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --color-theme: var(--theme);
+  --color-theme-dark: var(--theme-dark);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-field: var(--field);
+  --color-danger: var(--danger);
+  --color-on-theme: var(--on-theme);
 }
 
-html {
-  scroll-behavior: smooth;
+:root {
+  color-scheme: dark;
+  --theme: #29b6f6;
+  --theme-dark: #0288d1;
+  --bg: #242424;
+  /* 浮かせる面は不透明にする。半透明だとネイティブの部品やプルダウンの下が透ける */
+  --surface: #1c1c1c;
+  --raised: #303030;
+  --fg: rgba(255, 255, 255, 0.87);
+  --muted: rgba(255, 255, 255, 0.55);
+  --line: rgba(255, 255, 255, 0.12);
+  --field: #1f1f1f;
+  --danger: #ef5350;
+  --on-theme: #04202e;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  margin: 0;
-  background:
-    radial-gradient(1200px 500px at 10% -10%, rgba(157, 44, 44, 0.06), transparent 50%),
-    var(--color-paper);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 1.75;
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #ffffff;
+    --surface: #f6f7f9;
+    --raised: #eceef1;
+    --fg: #213547;
+    --muted: #5f6f7e;
+    --line: rgba(0, 0, 0, 0.12);
+    --field: #ffffff;
+    --danger: #d32f2f;
+  }
 }
 
-button,
-a {
-  -webkit-tap-highlight-color: transparent;
+@layer base {
+  body {
+    margin: 0;
+    min-width: 320px;
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  a,
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--theme);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--theme) 35%, transparent);
+  }
 }
 
-button:focus-visible,
-a:focus-visible {
-  outline: 2px solid var(--color-seal);
-  outline-offset: 2px;
-}
+/*
+ * 部品。高さは通常 h-9（36px）、小さいもの h-7（28px）の2段だけにする。
+ * 中身は inline-flex で上下左右の中央に置く。固定幅のボタンで文字がずれないように。
+ */
+@layer components {
+  .link {
+    @apply font-medium text-theme hover:text-theme-dark;
+  }
 
-::selection {
-  background: #e7c3b4;
+  .btn {
+    @apply inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-transparent bg-raised px-4 text-sm font-medium whitespace-nowrap text-fg transition-colors hover:border-theme disabled:cursor-default disabled:opacity-40 disabled:hover:border-transparent;
+  }
+
+  .btn-primary {
+    @apply bg-theme text-on-theme hover:border-transparent hover:bg-theme-dark hover:text-white;
+  }
+
+  .btn-danger {
+    @apply border-danger/60 bg-transparent text-danger hover:border-danger hover:bg-danger/10;
+  }
+
+  .btn-sm {
+    @apply h-7 rounded-md px-2.5 text-xs;
+  }
+
+  .btn-icon {
+    @apply inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted transition-colors hover:bg-raised hover:text-fg disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent;
+  }
+
+  .field {
+    @apply h-9 min-w-0 rounded-lg border border-line bg-field px-3 text-sm text-fg outline-none placeholder:text-muted focus:border-theme focus:ring-1 focus:ring-theme;
+  }
+
+  .field-sm {
+    @apply h-7 rounded-md px-2.5 text-xs;
+  }
+
+  /* 小見出し。サイドパネルのブロックや、ホームの列の見出し */
+  .label {
+    @apply text-xs font-semibold tracking-wide text-muted;
+  }
 }

@@ -68,7 +68,7 @@ export function PageSuggest<T extends Page>({
             close: () => setOpen(false),
           })
         }
-        className="w-full rounded-md border border-line bg-paper-2 px-2.5 py-1 text-sm outline-none placeholder:text-muted/70 focus:border-seal"
+        className="field w-full"
       />
       {open ? (
         <SuggestList
