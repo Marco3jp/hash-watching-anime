@@ -12,7 +12,7 @@ import {
   SideBlock,
 } from "../components/PageFrame.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
-import { paths } from "../paths.ts";
+import { paths, seriesName } from "../paths.ts";
 import { useDatabase, useStore } from "../store.ts";
 
 export function CharacterPage() {
@@ -34,8 +34,8 @@ function CharacterView({ db, character }: { db: Database; character: Character }
     <PageFrame
       kicker="キャラクター"
       header={
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="min-w-[min(100%,20rem)] flex-1">
             <TitleFields
               page={character}
               onTitle={(title) => update({ title })}
@@ -56,7 +56,7 @@ function CharacterView({ db, character }: { db: Database; character: Character }
         <>
           <SideBlock title="名簿にいるシリーズ">
             {panel.roster.length === 0 ? null : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {panel.roster.map((item) => (
                   <li key={item.series.id}>
                     <PageLink page={item.series} />
@@ -70,12 +70,12 @@ function CharacterView({ db, character }: { db: Database; character: Character }
           </SideBlock>
           <SideBlock title="出演した話">
             {panel.appearances.length === 0 ? null : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {panel.appearances.map((item) => (
                   <li key={item.episode.id}>
                     <PageLink page={item.episode} />
                     <span className="block text-xs text-muted">
-                      {item.series.title}
+                      {seriesName(item.series)}
                       {item.note ? `・${item.note}` : ""}
                     </span>
                   </li>

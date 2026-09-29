@@ -6,22 +6,32 @@ export function TitleFields({
   page,
   onTitle,
   onAliases,
+  prefix,
 }: {
   page: Page;
+  /** 題名の前に出す印。入力欄の外に置くので、保存する題名には入らない */
+  prefix?: string;
   onTitle: (title: string) => void;
   onAliases: (aliases: string[]) => void;
 }) {
   return (
     <>
-      <InlineText
-        label="題名"
-        value={page.title}
-        required
-        onCommit={onTitle}
-        className="font-serif text-2xl leading-snug"
-      />
-      <div className="flex items-baseline gap-2 text-sm text-muted">
-        <span className="shrink-0 font-mono text-[11px]">別名</span>
+      <div className="flex items-baseline">
+        {prefix ? (
+          <span aria-hidden className="mr-0.5 shrink-0 text-3xl leading-tight font-semibold text-theme">
+            {prefix}
+          </span>
+        ) : null}
+        <InlineText
+          label="題名"
+          value={page.title}
+          required
+          onCommit={onTitle}
+          className="text-3xl leading-tight font-semibold"
+        />
+      </div>
+      <div className="mt-1 flex items-center gap-3 text-sm text-muted">
+        <span className="shrink-0 text-xs font-semibold">別名</span>
         <InlineText
           label="別名"
           value={page.aliases.join("、")}

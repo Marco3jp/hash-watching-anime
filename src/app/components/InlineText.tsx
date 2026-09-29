@@ -51,7 +51,7 @@ export function InlineText({
           requestAnimationFrame(() => input.blur());
         }
       }}
-      className={`w-full min-w-0 rounded-sm border-b border-transparent bg-transparent outline-none placeholder:text-muted/60 hover:border-line focus:border-seal ${className}`}
+      className={`-mx-1.5 w-[calc(100%+0.75rem)] min-w-0 rounded-md border border-transparent bg-transparent px-1.5 outline-none placeholder:text-muted/70 hover:border-line focus:border-theme focus:bg-field ${className}`}
     />
   );
 }

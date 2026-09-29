@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { searchPages } from "../../model/search.ts";
-import { kindLabel, pageName, pathOf } from "../paths.ts";
+import { kindLabel, pageName, pathOf, seriesName } from "../paths.ts";
 import { useDatabase } from "../store.ts";
 
 export function SearchPage() {
@@ -11,11 +11,11 @@ export function SearchPage() {
 
   return (
     <section>
-      <p className="font-mono text-xs tracking-[0.16em] text-muted">検索</p>
-      <h1 className="font-serif text-3xl font-semibold">「{text}」</h1>
+      <p className="label mb-1">検索</p>
+      <h1 className="text-3xl font-semibold">「{text}」</h1>
       <p className="mt-1 text-sm text-muted">{hits.length} 件</p>
       {hits.length === 0 ? null : (
-        <ul className="mt-6 space-y-2">
+        <ul className="mt-6 divide-y divide-line border-y border-line">
           {hits.map(({ page, excerpt }) => {
             const series =
               page.kind === "episode"
@@ -23,15 +23,16 @@ export function SearchPage() {
                 : undefined;
             return (
               <li key={page.id}>
-                <Link
-                  to={pathOf(db, page)}
-                  className="block rounded-lg border border-line bg-paper-2 px-4 py-3 hover:border-ink"
-                >
-                  <span className="font-mono text-[11px] tracking-wider text-muted">
-                    {kindLabel[page.kind]}
-                    {series ? `・${series.title}` : ""}
+                <Link to={pathOf(db, page)} className="group block px-1 py-3 hover:bg-surface">
+                  <span className="flex items-baseline gap-3">
+                    <span className="font-medium text-theme group-hover:text-theme-dark">
+                      {pageName(page)}
+                    </span>
+                    <span className="text-xs text-muted">
+                      {kindLabel[page.kind]}
+                      {series ? `・${seriesName(series)}` : ""}
+                    </span>
                   </span>
-                  <span className="block font-serif text-lg">{pageName(page)}</span>
                   {excerpt ? (
                     <span className="mt-1 block text-sm text-muted">{excerpt}</span>
                   ) : null}
