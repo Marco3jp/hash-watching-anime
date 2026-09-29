@@ -13,12 +13,8 @@ export function SearchPage() {
     <section>
       <p className="font-mono text-xs tracking-[0.16em] text-muted">検索</p>
       <h1 className="font-serif text-3xl font-semibold">「{text}」</h1>
-      <p className="mt-1 text-sm text-muted">
-        題名、別名、話数、本文の文字列で探す。{hits.length} 件。
-      </p>
-      {hits.length === 0 ? (
-        <p className="mt-6 text-muted">当たるページが無い。</p>
-      ) : (
+      <p className="mt-1 text-sm text-muted">{hits.length} 件</p>
+      {hits.length === 0 ? null : (
         <ul className="mt-6 space-y-2">
           {hits.map(({ page, excerpt }) => {
             const series =

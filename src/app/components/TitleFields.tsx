@@ -25,7 +25,6 @@ export function TitleFields({
         <InlineText
           label="別名"
           value={page.aliases.join("、")}
-          placeholder="検索とサジェストに使う。読点で区切る"
           onCommit={(value) => onAliases(value.split(/[、,，\n]/))}
         />
       </div>

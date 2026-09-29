@@ -43,7 +43,7 @@ function CharacterView({ db, character }: { db: Database; character: Character }
             />
           </div>
           <DeleteButton
-            message={`「${character.title}」を消す。名簿と出演からも外れる。本文のリンクはただの文字になる。`}
+            message={`「${character.title}」を消す`}
             onDelete={() => {
               store.update((draft) => deleteCharacter(draft, character.id));
               navigate(paths.home);
@@ -55,9 +55,7 @@ function CharacterView({ db, character }: { db: Database; character: Character }
       side={
         <>
           <SideBlock title="名簿にいるシリーズ">
-            {panel.roster.length === 0 ? (
-              <p className="text-sm text-muted">まだどの名簿にもいない。</p>
-            ) : (
+            {panel.roster.length === 0 ? null : (
               <ul className="space-y-1.5">
                 {panel.roster.map((item) => (
                   <li key={item.series.id}>
@@ -71,9 +69,7 @@ function CharacterView({ db, character }: { db: Database; character: Character }
             )}
           </SideBlock>
           <SideBlock title="出演した話">
-            {panel.appearances.length === 0 ? (
-              <p className="text-sm text-muted">話ごとの出演はまだ無い。</p>
-            ) : (
+            {panel.appearances.length === 0 ? null : (
               <ul className="space-y-1.5">
                 {panel.appearances.map((item) => (
                   <li key={item.episode.id}>

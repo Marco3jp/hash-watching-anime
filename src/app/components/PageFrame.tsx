@@ -8,13 +8,11 @@ import { useDatabase } from "../store.ts";
 export function PageFrame({
   kicker,
   header,
-  banner,
   body,
   side,
 }: {
   kicker: string;
   header: ReactNode;
-  banner?: ReactNode;
   body: ReactNode;
   side: ReactNode;
 }) {
@@ -24,11 +22,6 @@ export function PageFrame({
         <p className="font-mono text-[11px] tracking-[0.16em] text-muted">{kicker}</p>
         {header}
       </header>
-      {banner ? (
-        <div className="border-b border-line bg-[#f6e7dc] px-4 py-2 text-sm sm:px-6">
-          {banner}
-        </div>
-      ) : null}
       <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-h-96 px-4 py-5 sm:px-6">{body}</div>
         <aside className="border-t border-line bg-[#f6f1e6] px-4 py-5 lg:border-t-0 lg:border-l">
@@ -75,7 +68,7 @@ export function PageLink({
 /** 本文に保存されている id のうち、ページが残っているもの */
 export function LinkedPages({ pages }: { pages: Page[] }) {
   if (pages.length === 0) {
-    return <p className="text-sm text-muted">本文の @ で付けたリンクがここに並ぶ。</p>;
+    return null;
   }
   return (
     <ul className="space-y-1">
@@ -135,9 +128,8 @@ export function Missing({ what }: { what: string }) {
   return (
     <div className="rounded-xl border border-line bg-paper-2 px-6 py-10">
       <p className="font-serif text-xl">{what}は無い。</p>
-      <p className="mt-2 text-sm text-muted">
-        消したか、別のブラウザで作ったページかもしれない。
-        <Link to="/" className="ml-1 text-series underline">
+      <p className="mt-2 text-sm">
+        <Link to="/" className="text-series underline">
           ホームへ戻る
         </Link>
       </p>

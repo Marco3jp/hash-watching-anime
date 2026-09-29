@@ -84,7 +84,7 @@ function EpisodeView({
               />
             </div>
             <DeleteButton
-              message={`「${pageName(episode)}」を消す。本文も消える。`}
+              message={`「${pageName(episode)}」を消す`}
               onDelete={() => {
                 store.update((draft) => deleteEpisode(draft, episode.id));
                 const target = openSeries(store.getSnapshot(), series.id);
@@ -95,15 +95,6 @@ function EpisodeView({
             />
           </div>
         </>
-      }
-      banner={
-        panel.collapsed ? (
-          <p>
-            シリーズと話が同じ1本なので、開くとこのページになる。名簿は
-            <PageLinkToSeries series={series}>シリーズの面</PageLinkToSeries>
-            で直す。
-          </p>
-        ) : undefined
       }
       body={<BodyEditor page={episode} />}
       side={
@@ -225,16 +216,7 @@ function EpisodeCharacters({
             );
           })}
         </ul>
-      ) : (
-        <>
-          <p className="text-xs text-muted">
-            出演の印が無いので、シリーズの名簿を出している。
-          </p>
-          {panel.characters.length === 0 ? (
-            <p className="text-sm text-muted">名簿もまだ空。</p>
-          ) : null}
-        </>
-      )}
+      ) : null}
 
       {rosterRest.length > 0 ? (
         <div>

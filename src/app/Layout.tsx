@@ -38,7 +38,6 @@ export function Layout() {
               aria-label="検索"
               value={text}
               onChange={(event) => setText(event.target.value)}
-              placeholder="題名、別名、本文で探す"
               className="w-56 rounded-md border border-line bg-paper-2 px-2.5 py-1 text-sm outline-none focus:border-seal"
             />
             <button
