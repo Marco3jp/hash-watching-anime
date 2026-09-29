@@ -18,13 +18,8 @@ export function HomePage() {
     <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_320px]">
       <section>
         <h1 className="text-2xl font-semibold">シリーズ</h1>
-        <p className="mt-1 text-sm text-muted">
-          実況は話のページに書く。劇場版は話が1本なので、開くとその話になる。
-        </p>
         <CreateSeries />
-        {db.series.length === 0 ? (
-          <p className="mt-6 text-sm text-muted">まだシリーズが無い。上で作る。</p>
-        ) : (
+        {db.series.length === 0 ? null : (
           <ul className="mt-6 divide-y divide-line border-y border-line">
             {db.series.map((series) => {
               const episodes = episodesIn(db, series.id);
@@ -56,13 +51,8 @@ export function HomePage() {
       </section>
       <section>
         <h2 className="text-2xl font-semibold">キャラクター</h2>
-        <p className="mt-1 text-sm text-muted">
-          名簿と出演は、シリーズと話のサイドパネルから付ける。
-        </p>
         <CreateCharacter />
-        {db.characters.length === 0 ? (
-          <p className="mt-6 text-sm text-muted">まだいない。</p>
-        ) : (
+        {db.characters.length === 0 ? null : (
           <ul className="mt-6 divide-y divide-line border-y border-line">
             {db.characters.map((character) => (
               <li key={character.id}>

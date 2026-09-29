@@ -74,20 +74,12 @@ export function BodyEditor({ page }: { page: Page }) {
 
   return (
     <div className="space-y-0.5">
-      <p className="mb-3 text-xs text-muted">
-        @ で名前をリンク。リンクは Ctrl（Mac は ⌘）を押しながらクリックで開く
-      </p>
       {blocks.map((block, index) => (
         <BlockRow
           key={block.id}
           block={block}
           pages={suggestable}
           hintOf={(item) => hintOf(db, item)}
-          placeholder={
-            page.body.blocks.length === 0
-              ? "ここに書く。@ で名前をリンク、Enter で次の行"
-              : undefined
-          }
           register={(area) => {
             if (area) areas.current.set(block.id, area);
             else areas.current.delete(block.id);
@@ -144,7 +136,6 @@ function BlockRow({
   block,
   pages,
   hintOf,
-  placeholder,
   register,
   onRuns,
   onTime,
@@ -158,7 +149,6 @@ function BlockRow({
   block: MemoBlock;
   pages: Page[];
   hintOf: (page: Page) => string | undefined;
-  placeholder?: string;
   register: (area: HTMLTextAreaElement | null) => void;
   onRuns: (runs: TextRun[], caret?: number) => void;
   onTime: (at: string) => void;
@@ -294,7 +284,6 @@ function BlockRow({
           value={text}
           rows={1}
           spellCheck={false}
-          placeholder={placeholder}
           onChange={(event) => {
             onRuns(applyTextEdit(block.runs, event.target.value));
             detect(event.target);

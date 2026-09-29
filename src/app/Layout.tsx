@@ -51,7 +51,6 @@ export function Layout() {
               aria-label="検索"
               value={text}
               onChange={(event) => setText(event.target.value)}
-              placeholder="題名、別名、本文で探す"
               className="field flex-1 sm:w-60 sm:flex-none"
             />
             <button type="submit" className="btn">

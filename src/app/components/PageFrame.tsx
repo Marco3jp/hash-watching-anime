@@ -11,13 +11,11 @@ import { useDatabase } from "../store.ts";
 export function PageFrame({
   kicker,
   header,
-  banner,
   body,
   side,
 }: {
   kicker: string;
   header: ReactNode;
-  banner?: ReactNode;
   body: ReactNode;
   side: ReactNode;
 }) {
@@ -27,11 +25,6 @@ export function PageFrame({
         <p className="label mb-1">{kicker}</p>
         {header}
       </header>
-      {banner ? (
-        <div className="mt-4 rounded-lg border border-theme/40 bg-theme/10 px-4 py-2.5 text-sm">
-          {banner}
-        </div>
-      ) : null}
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
         <div className="min-w-0 lg:min-h-80">{body}</div>
         <aside className="space-y-8 border-t border-line pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
@@ -75,7 +68,7 @@ export function PageLink({
 /** 本文に保存されている id のうち、ページが残っているもの */
 export function LinkedPages({ pages }: { pages: Page[] }) {
   if (pages.length === 0) {
-    return <p className="text-sm text-muted">本文の @ で付けたリンクがここに並ぶ。</p>;
+    return null;
   }
   return (
     <ul className="space-y-1.5">
@@ -135,9 +128,8 @@ export function Missing({ what }: { what: string }) {
   return (
     <div className="py-10">
       <h1 className="text-2xl font-semibold">{what}は無い。</h1>
-      <p className="mt-3 text-sm text-muted">
-        消したか、別のブラウザで作ったページかもしれない。
-        <Link to="/" className="link ml-1">
+      <p className="mt-3 text-sm">
+        <Link to="/" className="link">
           ホームへ戻る
         </Link>
       </p>

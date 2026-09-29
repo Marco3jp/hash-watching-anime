@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   addSeriesCharacter,
   createCharacter,
@@ -60,7 +60,7 @@ function SeriesView({ db, series }: { db: Database; series: Series }) {
           </div>
           <UnitToggle value={series.unit} onChange={(unit) => update({ unit })} />
           <DeleteButton
-            message={`「${series.title}」を消す。話 ${panel.episodes.length} 本も一緒に消える。`}
+            message={`「${series.title}」を消す`}
             onDelete={() => {
               store.update((draft) => deleteSeries(draft, series.id));
               navigate(paths.home);
@@ -68,24 +68,7 @@ function SeriesView({ db, series }: { db: Database; series: Series }) {
           />
         </div>
       }
-      banner={
-        collapsed ? (
-          <p>
-            話が1本なので、普段は
-            <Link to={paths.episode(panel.open.id)} className="link mx-1">
-              話のページ
-            </Link>
-            を開く。ここでは名簿と話の一覧を直す。シリーズ側の本文は出さない。
-          </p>
-        ) : undefined
-      }
-      body={
-        collapsed ? (
-          <p className="text-sm text-muted">本文は話のページに書く。</p>
-        ) : (
-          <BodyEditor page={series} />
-        )
-      }
+      body={collapsed ? null : <BodyEditor page={series} />}
       side={
         <>
           <SideBlock title="話">
@@ -132,9 +115,7 @@ function EpisodeList({ db, series }: { db: Database; series: Series }) {
 
   return (
     <div className="space-y-3">
-      {episodes.length === 0 ? (
-        <p className="text-sm text-muted">話はまだ無い。</p>
-      ) : (
+      {episodes.length === 0 ? null : (
         <ol className="space-y-0.5">
           {episodes.map((episode, index) => (
             <li key={episode.id} className="group flex items-center gap-1">
@@ -216,11 +197,7 @@ function Roster({ db, series }: { db: Database; series: Series }) {
 
   return (
     <div className="space-y-4">
-      {series.characters.length === 0 ? (
-        <p className="text-sm text-muted">
-          まだ空。出演の印が無い話は、この名簿を出す。
-        </p>
-      ) : (
+      {series.characters.length === 0 ? null : (
         <ul className="space-y-3">
           {series.characters.map((row) => {
             const character = characterById.get(row.characterId);

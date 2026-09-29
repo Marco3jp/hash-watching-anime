@@ -63,10 +63,6 @@ export function SettingsPage() {
     <div className="max-w-3xl space-y-10">
       <section>
         <h1 className="text-2xl font-semibold">書き出し</h1>
-        <p className="mt-2 text-sm text-muted">
-          シリーズ {db.series.length}、話 {db.episodes.length}、キャラクター {db.characters.length} を1つの JSON にする。
-          保存先はこのブラウザの LocalStorage なので、別の端末へ移すときや控えを取るときに使う。
-        </p>
         <button
           type="button"
           onClick={onExport}
@@ -78,9 +74,6 @@ export function SettingsPage() {
 
       <section>
         <h2 className="text-2xl font-semibold">読み込み</h2>
-        <p className="mt-2 text-sm text-muted">
-          書き出した JSON を選ぶ。同じ id のページは置き換わり、無い id は足される。id は引き直さないので、本文のリンクや名簿はそのままつながる。
-        </p>
         <input
           ref={fileInput}
           type="file"
@@ -101,7 +94,7 @@ export function SettingsPage() {
             </p>
             {overwriteCount > 0 ? (
               <div className="mt-2 text-danger">
-                <p>置き換える: {overwriteCount} ページ（同じ id の今の中身は消える）</p>
+                <p>置き換える: {overwriteCount} ページ</p>
                 <OverwriteList title="シリーズ" names={pending.preview.overwrite.series} />
                 <OverwriteList title="話" names={pending.preview.overwrite.episodes} />
                 <OverwriteList title="キャラクター" names={pending.preview.overwrite.characters} />
