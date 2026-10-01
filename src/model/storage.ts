@@ -1,4 +1,5 @@
-import type { Character, Database, Episode, Series } from "./types.ts";
+import { normalizeBlock } from "./body.ts";
+import type { Character, Database, Episode, Page, Series } from "./types.ts";
 
 /**
  * 保存先は LocalStorage。Sparkling Journey と同じく、種類ごとに1キーへ配列を置く。
@@ -50,11 +51,11 @@ export class PageStore {
   }
 
   private read(): Database {
-    return {
+    return normalizeDatabase({
       series: this.readArray<Series>(storageKeys.series),
       episodes: this.readArray<Episode>(storageKeys.episodes),
       characters: this.readArray<Character>(storageKeys.characters),
-    };
+    });
   }
 
   private readArray<T>(key: string): T[] {
@@ -108,10 +109,30 @@ export function parseExport(json: string): Database {
   ) {
     throw new Error("series、episodes、characters が配列ではない");
   }
-  return {
+  return normalizeDatabase({
     series: payload.series,
     episodes: payload.episodes,
     characters: payload.characters,
+  });
+}
+
+/**
+ * 本文の行は、前の版だと type（text か timecode）で時刻の有無を分けていた。
+ * キーと書き出しの版は上げず、読むときにいまの形へ直す。
+ */
+function normalizeDatabase(db: Database): Database {
+  return {
+    series: db.series.map(normalizeBody),
+    episodes: db.episodes.map(normalizeBody),
+    characters: db.characters.map(normalizeBody),
+  };
+}
+
+function normalizeBody<T extends Page>(page: T): T {
+  const blocks: unknown = page.body?.blocks;
+  return {
+    ...page,
+    body: { blocks: Array.isArray(blocks) ? blocks.map(normalizeBlock) : [] },
   };
 }
 

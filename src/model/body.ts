@@ -125,16 +125,58 @@ function runContaining(
   return undefined;
 }
 
-export function blockWithTime(
-  block: MemoBlock,
-  at: string,
-): MemoBlock {
-  if (at.trim() === "") return { id: block.id, type: "text", runs: block.runs };
-  return { id: block.id, type: "timecode", at, runs: block.runs };
+/** 話の中の位置を入れる。空なら null */
+export function blockWithTime(block: MemoBlock, at: string): MemoBlock {
+  const trimmed = at.trim();
+  return { ...block, at: trimmed === "" ? null : trimmed };
 }
 
 export function blockTime(block: MemoBlock): string {
-  return block.type === "timecode" ? block.at : "";
+  return block.at ?? "";
+}
+
+/** まだ書いた時刻の無い行に、何か入っていれば stamp を入れる */
+export function stampWritten(blocks: MemoBlock[], stamp: string): MemoBlock[] {
+  return blocks.map((block) =>
+    block.writtenAt === null && (block.at !== null || plainText(block.runs) !== "")
+      ? { ...block, writtenAt: stamp }
+      : block,
+  );
+}
+
+/** 手元の時差を付けた ISO 8601。「2026-10-01T21:12:30+09:00」 */
+export function localTimestamp(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const offset = -date.getTimezoneOffset();
+  const sign = offset >= 0 ? "+" : "-";
+  const hours = pad(Math.floor(Math.abs(offset) / 60));
+  const minutes = pad(Math.abs(offset) % 60);
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}` +
+    `${sign}${hours}:${minutes}`
+  );
+}
+
+/**
+ * 前の版の行（type が text か timecode）を、いまの形に直す。
+ * 保存してある本文と、読み込む JSON に使う。
+ */
+export function normalizeBlock(raw: unknown): MemoBlock {
+  const block = (raw ?? {}) as {
+    id?: unknown;
+    type?: unknown;
+    at?: unknown;
+    writtenAt?: unknown;
+    runs?: unknown;
+  };
+  const at = typeof block.at === "string" && block.at.trim() !== "" ? block.at : null;
+  return {
+    id: typeof block.id === "string" ? block.id : crypto.randomUUID(),
+    at: block.type === "text" ? null : at,
+    writtenAt: typeof block.writtenAt === "string" ? block.writtenAt : null,
+    runs: Array.isArray(block.runs) ? (block.runs as TextRun[]) : [],
+  };
 }
 
 export function replaceBlock(
@@ -145,7 +187,7 @@ export function replaceBlock(
   return blocks.map((block) => (block.id === id ? update(block) : block));
 }
 
-/** offset で切り、後ろを新しい text ブロックにする */
+/** offset で切り、後ろを話の中の位置が無い新しい行にする。後ろに文字があれば、書いた時刻は前の行と同じ */
 export function splitBlock(
   blocks: MemoBlock[],
   id: string,
@@ -159,7 +201,12 @@ export function splitBlock(
   return [
     ...blocks.slice(0, index),
     { ...block, runs: normalizeRuns(left) },
-    { id: newId, type: "text", runs: normalizeRuns(right) },
+    {
+      id: newId,
+      at: null,
+      writtenAt: right.length > 0 ? block.writtenAt : null,
+      runs: normalizeRuns(right),
+    },
     ...blocks.slice(index + 1),
   ];
 }
@@ -177,7 +224,11 @@ export function mergeWithPrevious(
   return {
     blocks: [
       ...blocks.slice(0, index - 1),
-      { ...previous, runs: normalizeRuns([...previous.runs, ...current.runs]) },
+      {
+        ...previous,
+        writtenAt: previous.writtenAt ?? current.writtenAt,
+        runs: normalizeRuns([...previous.runs, ...current.runs]),
+      },
       ...blocks.slice(index + 1),
     ],
     focus: { id: previous.id, offset },
@@ -187,7 +238,7 @@ export function mergeWithPrevious(
 export function bodyText(blocks: MemoBlock[]): string {
   return blocks
     .map((block) =>
-      block.type === "timecode"
+      block.at !== null
         ? `${block.at} ${plainText(block.runs)}`
         : plainText(block.runs),
     )

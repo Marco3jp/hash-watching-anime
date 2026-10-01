@@ -18,11 +18,17 @@ import {
  */
 
 function text(id: string, runs: TextRun[]): MemoBlock {
-  return { id, type: "text", runs };
+  return { id, at: null, writtenAt: null, runs };
 }
 
-function at(id: string, time: string, runs: TextRun[]): MemoBlock {
-  return { id, type: "timecode", at: time, runs };
+/** 実況の行。話の中の位置と、現実で書いた時刻。位置の無い行は null */
+function line(
+  id: string,
+  time: string | null,
+  writtenAt: string,
+  runs: TextRun[],
+): MemoBlock {
+  return { id, at: time, writtenAt, runs };
 }
 
 export function buildExample(): Database {
@@ -69,12 +75,20 @@ export function buildExample(): Database {
     sortKey: 10,
     airedOn: "2012-10-03",
     blocks: [
-      at("b-e1-time", "00:02:10", [
+      line("b-e1-time", "02:10", "2026-10-01T21:02:40+09:00", [
         { text: "入学式の前夜。ベランダに出た" },
         { text: "富樫勇太", pageId: yuuta.id },
         { text: "の上の階から、" },
         { text: "小鳥遊六花", pageId: rikka.id },
         { text: "がロープで降りてくる。" },
+      ]),
+      line("b-e1-pause", null, "2026-10-01T21:04:15+09:00", [
+        { text: "一時停止。" },
+        { text: "小鳥遊六花", pageId: rikka.id },
+        { text: "は上の階に越してきたらしい。" },
+      ]),
+      line("b-e1-eye", "11:10", "2026-10-01T21:14:05+09:00", [
+        { text: "邪王真眼の名乗り。" },
       ]),
     ],
   });

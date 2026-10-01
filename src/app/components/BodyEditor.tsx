@@ -12,11 +12,13 @@ import {
   blockWithTime,
   insertLink,
   linkAt,
+  localTimestamp,
   mergeWithPrevious,
   plainText,
   replaceBlock,
   splitBlock,
   splitRuns,
+  stampWritten,
 } from "../../model/body.ts";
 import { createCharacter, setBody } from "../../model/records.ts";
 import { hasExactTitle, suggestPages } from "../../model/search.ts";
@@ -37,8 +39,9 @@ interface Mention {
 }
 
 /**
- * 本文を、見ている面でそのまま直す。
+ * 本文を、見ている面でそのまま直す。見た目は1枚の入力欄で、行ごとに左へ話の中の位置、右へ書いた時刻を出す。
  * Enter で次の行、Shift+Enter で行内の改行、行頭の Backspace で前の行へ寄せる。
+ * 書いた時刻は、行に何か入ったときに入れる。
  * @ に続けて打つと、ページのサジェストが開く。選んだページの id を TextRun.pageId に入れる。
  */
 export function BodyEditor({ page }: { page: Page }) {
@@ -52,7 +55,7 @@ export function BodyEditor({ page }: { page: Page }) {
   const blocks: MemoBlock[] =
     page.body.blocks.length > 0
       ? page.body.blocks
-      : [{ id: emptyId, type: "text", runs: [] }];
+      : [{ id: emptyId, at: null, writtenAt: null, runs: [] }];
 
   useLayoutEffect(() => {
     const focus = pendingFocus.current;
@@ -66,18 +69,20 @@ export function BodyEditor({ page }: { page: Page }) {
 
   const commit = (next: MemoBlock[], focus?: { id: string; offset: number }) => {
     if (focus) pendingFocus.current = focus;
-    store.update((draft) => setBody(draft, page.id, { blocks: next }));
+    const blocks = stampWritten(next, localTimestamp(new Date()));
+    store.update((draft) => setBody(draft, page.id, { blocks }));
   };
 
   const suggestable = orderForSuggest(db, page);
   const pageIds = new Set(pagesOf(db).map((item) => item.id));
 
   return (
-    <div className="space-y-0.5">
+    <div className="rounded-lg border border-line bg-field py-1.5 focus-within:border-theme">
       {blocks.map((block, index) => (
         <BlockRow
           key={block.id}
           block={block}
+          showDate={dateChanged(blocks, index)}
           pages={suggestable}
           hintOf={(item) => hintOf(db, item)}
           register={(area) => {
@@ -134,6 +139,7 @@ export function BodyEditor({ page }: { page: Page }) {
 
 function BlockRow({
   block,
+  showDate,
   pages,
   hintOf,
   register,
@@ -147,6 +153,7 @@ function BlockRow({
   isLink,
 }: {
   block: MemoBlock;
+  showDate: boolean;
   pages: Page[];
   hintOf: (page: Page) => string | undefined;
   register: (area: HTMLTextAreaElement | null) => void;
@@ -238,9 +245,9 @@ function BlockRow({
   };
 
   return (
-    <div className="group -mx-2 grid grid-cols-[5rem_minmax(0,1fr)] gap-3 rounded-md px-2 py-0.5 focus-within:bg-surface hover:bg-surface">
+    <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] gap-3 pr-3">
       <input
-        aria-label="時刻"
+        aria-label="話の中の時刻"
         value={time}
         placeholder="--:--"
         onChange={(event) => setTime(event.target.value)}
@@ -251,9 +258,7 @@ function BlockRow({
           if (event.nativeEvent.isComposing) return;
           if (event.key === "Enter") event.currentTarget.blur();
         }}
-        className={`h-7 min-w-0 bg-transparent font-mono text-xs leading-7 text-theme outline-none placeholder:text-muted/50 ${
-          time ? "" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
-        }`}
+        className="h-7 min-w-0 border-r border-line bg-transparent px-3 font-mono text-xs leading-7 text-theme outline-none placeholder:text-muted/60 focus:placeholder:text-muted"
       />
       <div className="relative leading-7">
         <div
@@ -299,8 +304,36 @@ function BlockRow({
           className="absolute inset-0 z-10 block h-full w-full resize-none overflow-hidden bg-transparent p-0 text-transparent caret-fg outline-none whitespace-pre-wrap break-words [overflow-wrap:anywhere] placeholder:text-muted/70 selection:bg-theme/30"
         />
       </div>
+      <WrittenAt value={block.writtenAt} showDate={showDate} />
     </div>
   );
+}
+
+/** 現実で書いた時刻。書いたときの時差のまま、時と分だけ出す。日付は前の行と変わったときだけ */
+function WrittenAt({ value, showDate }: { value: string | null; showDate: boolean }) {
+  if (!value) return <span />;
+  const date = value.slice(0, 10);
+  const time = value.slice(11, 16);
+  return (
+    <time
+      dateTime={value}
+      title={value}
+      className="whitespace-nowrap font-mono text-xs leading-7 text-muted"
+    >
+      {showDate ? `${date.replaceAll("-", "/")} ${time}` : time}
+    </time>
+  );
+}
+
+/** 書いた時刻のある前の行と、日付が変わっているか */
+function dateChanged(blocks: MemoBlock[], index: number): boolean {
+  const current = blocks[index].writtenAt;
+  if (!current) return false;
+  for (let previous = index - 1; previous >= 0; previous -= 1) {
+    const before = blocks[previous].writtenAt;
+    if (before) return before.slice(0, 10) !== current.slice(0, 10);
+  }
+  return false;
 }
 
 /** textarea の下に同じ文字を並べ、リンクだけ色を付ける。サジェストは @ の位置に出す */

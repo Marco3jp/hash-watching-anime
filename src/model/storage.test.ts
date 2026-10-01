@@ -47,6 +47,25 @@ describe("PageStore", () => {
     expect(calls).toBe(1);
   });
 
+  it("前の版の本文の行を、読むときにいまの形へ直す", () => {
+    const storage = new MemoryStorage();
+    const db = buildExample();
+    const old = db.episodes.map((episode) => ({
+      ...episode,
+      body: {
+        blocks: episode.body.blocks.map(({ id, at, runs }) =>
+          at === null ? { id, type: "text", runs } : { id, type: "timecode", at, runs },
+        ),
+      },
+    }));
+    storage.setItem(storageKeys.episodes, JSON.stringify(old));
+    const episode = new PageStore(storage)
+      .getSnapshot()
+      .episodes.find((item) => item.label === "第1話");
+    expect(episode?.body.blocks[0]).toMatchObject({ at: "02:10", writtenAt: null });
+    expect(episode?.body.blocks[1]).toMatchObject({ at: null, writtenAt: null });
+  });
+
   it("壊れた JSON のキーは空の配列として読む", () => {
     const storage = new MemoryStorage();
     storage.setItem(storageKeys.characters, "{");

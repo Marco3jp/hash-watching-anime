@@ -78,6 +78,7 @@ async function main() {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       locale: "ja-JP",
+      timezoneId: "Asia/Tokyo",
       colorScheme: "dark",
     });
     await context.addInitScript(
@@ -91,6 +92,8 @@ async function main() {
       { keys: storageKeys, data: db },
     );
     const page = await context.newPage();
+    // 本文の行に入る書いた時刻を、撮るたびに変えない
+    await page.clock.setFixedTime(new Date("2026-10-01T21:20:00+09:00"));
 
     const shots = [
       { name: "home", path: "/" },
