@@ -37,9 +37,8 @@ describe("buildExample", () => {
       yuuta?.id,
       rikka?.id,
     ]);
-    const run = episode.body.blocks[0];
-    if (!run || run.at === null) throw new Error("本文がない");
-    expect(run.runs.find((item) => item.text === "小鳥遊六花")?.pageId).toBe(
+    const runs = episode.body.blocks.flatMap((block) => block.runs);
+    expect(runs.find((item) => item.text === "小鳥遊六花")?.pageId).toBe(
       rikka?.id,
     );
   });

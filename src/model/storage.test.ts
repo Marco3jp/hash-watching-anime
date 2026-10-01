@@ -62,8 +62,9 @@ describe("PageStore", () => {
     const episode = new PageStore(storage)
       .getSnapshot()
       .episodes.find((item) => item.label === "第1話");
-    expect(episode?.body.blocks[0]).toMatchObject({ at: "02:10", writtenAt: null });
-    expect(episode?.body.blocks[1]).toMatchObject({ at: null, writtenAt: null });
+    const block = (id: string) => episode?.body.blocks.find((item) => item.id === id);
+    expect(block("b-e1-time")).toMatchObject({ at: "02:10", writtenAt: null });
+    expect(block("b-e1-pause")).toMatchObject({ at: null, writtenAt: null });
   });
 
   it("壊れた JSON のキーは空の配列として読む", () => {

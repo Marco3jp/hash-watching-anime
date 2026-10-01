@@ -120,7 +120,7 @@ async function main() {
     await settle(page);
     const body = page.getByRole("textbox", { name: "本文" }).first();
     await body.click();
-    await body.pressSequentially("部室で@");
+    await body.pressSequentially("ここの@");
     await page.keyboard.type("六");
     await page.getByRole("listbox").waitFor();
     await settle(page);
