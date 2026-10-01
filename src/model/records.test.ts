@@ -65,7 +65,7 @@ describe("deleteCharacter", () => {
     deleteCharacter(db, rikka.id);
     expect(tv1.characters.some((item) => item.characterId === rikka.id)).toBe(false);
     expect(first.appearances.some((item) => item.characterId === rikka.id)).toBe(false);
-    const runs = first.body.blocks[0].runs;
+    const runs = first.body.blocks.flatMap((block) => block.runs);
     expect(runs.some((run) => run.pageId === rikka.id)).toBe(true);
     const panel = buildEpisodeSidePanel(db, first.id);
     expect(panel.links.map((item) => item.title)).toEqual(["富樫勇太"]);

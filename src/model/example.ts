@@ -18,11 +18,17 @@ import {
  */
 
 function text(id: string, runs: TextRun[]): MemoBlock {
-  return { id, type: "text", runs };
+  return { id, at: null, writtenAt: null, runs };
 }
 
-function at(id: string, time: string, runs: TextRun[]): MemoBlock {
-  return { id, type: "timecode", at: time, runs };
+/** 実況の行。見ながらのリアクション。話の中の位置と、現実で書いた時刻。位置の無い行は null */
+function line(
+  id: string,
+  time: string | null,
+  writtenAt: string,
+  runs: TextRun[],
+): MemoBlock {
+  return { id, at: time, writtenAt, runs };
 }
 
 export function buildExample(): Database {
@@ -69,12 +75,22 @@ export function buildExample(): Database {
     sortKey: 10,
     airedOn: "2012-10-03",
     blocks: [
-      at("b-e1-time", "00:02:10", [
-        { text: "入学式の前夜。ベランダに出た" },
+      line("b-e1-time", "02:10", "2026-10-01T21:02:40+09:00", [
+        { text: "上の階からロープで降りてくるの、何回見ても笑う" },
+      ]),
+      line("b-e1-face", "02:25", "2026-10-01T21:03:05+09:00", [
         { text: "富樫勇太", pageId: yuuta.id },
-        { text: "の上の階から、" },
+        { text: "の「見ちゃいけないもの見た」顔ほんとすき" },
+      ]),
+      line("b-e1-pause", null, "2026-10-01T21:04:15+09:00", [
+        { text: "止めて考えてるけど、" },
         { text: "小鳥遊六花", pageId: rikka.id },
-        { text: "がロープで降りてくる。" },
+        { text: "の台詞だけ芝居がかってて、まわりと温度違うのわざとだよね？" },
+      ]),
+      line("b-e1-eye", "11:10", "2026-10-01T21:14:05+09:00", [
+        { text: "このカットの" },
+        { text: "小鳥遊六花", pageId: rikka.id },
+        { text: "の表情かわいすぎる！！！！！！！！！！" },
       ]),
     ],
   });

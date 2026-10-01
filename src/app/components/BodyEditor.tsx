@@ -12,11 +12,13 @@ import {
   blockWithTime,
   insertLink,
   linkAt,
+  localTimestamp,
   mergeWithPrevious,
   plainText,
   replaceBlock,
   splitBlock,
   splitRuns,
+  stampWritten,
 } from "../../model/body.ts";
 import { createCharacter, setBody } from "../../model/records.ts";
 import { hasExactTitle, suggestPages } from "../../model/search.ts";
@@ -37,8 +39,10 @@ interface Mention {
 }
 
 /**
- * 本文を、見ている面でそのまま直す。
+ * 本文を、見ている面でそのまま直す。見た目は1枚の入力欄で、行ごとに左へ話の中の位置を出す。
+ * 書いた時刻は、フォーカスしている行だけ、欄の左の外に出す。
  * Enter で次の行、Shift+Enter で行内の改行、行頭の Backspace で前の行へ寄せる。
+ * 書いた時刻は、行に何か入ったときに入れる。
  * @ に続けて打つと、ページのサジェストが開く。選んだページの id を TextRun.pageId に入れる。
  */
 export function BodyEditor({ page }: { page: Page }) {
@@ -46,13 +50,14 @@ export function BodyEditor({ page }: { page: Page }) {
   const db = useDatabase();
   const navigate = useNavigate();
   const [emptyId] = useState(() => crypto.randomUUID());
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const areas = useRef(new Map<string, HTMLTextAreaElement>());
   const pendingFocus = useRef<{ id: string; offset: number } | null>(null);
 
   const blocks: MemoBlock[] =
     page.body.blocks.length > 0
       ? page.body.blocks
-      : [{ id: emptyId, type: "text", runs: [] }];
+      : [{ id: emptyId, at: null, writtenAt: null, runs: [] }];
 
   useLayoutEffect(() => {
     const focus = pendingFocus.current;
@@ -66,74 +71,91 @@ export function BodyEditor({ page }: { page: Page }) {
 
   const commit = (next: MemoBlock[], focus?: { id: string; offset: number }) => {
     if (focus) pendingFocus.current = focus;
-    store.update((draft) => setBody(draft, page.id, { blocks: next }));
+    const blocks = stampWritten(next, localTimestamp(new Date()));
+    store.update((draft) => setBody(draft, page.id, { blocks }));
   };
 
   const suggestable = orderForSuggest(db, page);
   const pageIds = new Set(pagesOf(db).map((item) => item.id));
+  const focusedAt = blocks.find((block) => block.id === focusedId)?.writtenAt ?? null;
 
   return (
-    <div className="space-y-0.5">
-      {blocks.map((block, index) => (
-        <BlockRow
-          key={block.id}
-          block={block}
-          pages={suggestable}
-          hintOf={(item) => hintOf(db, item)}
-          register={(area) => {
-            if (area) areas.current.set(block.id, area);
-            else areas.current.delete(block.id);
-          }}
-          onRuns={(runs, caret) =>
-            commit(
-              replaceBlock(blocks, block.id, (item) => ({ ...item, runs })),
-              caret === undefined ? undefined : { id: block.id, offset: caret },
-            )
-          }
-          onTime={(at) => commit(replaceBlock(blocks, block.id, (item) => blockWithTime(item, at)))}
-          onSplit={(runs, offset) => {
-            const newId = crypto.randomUUID();
-            const replaced = replaceBlock(blocks, block.id, (item) => ({ ...item, runs }));
-            commit(splitBlock(replaced, block.id, offset, newId), { id: newId, offset: 0 });
-          }}
-          onMerge={() => {
-            if (index === 0) {
-              if (blocks.length > 1 && block.runs.length === 0 && blockTime(block) === "") {
-                commit(blocks.slice(1), { id: blocks[1].id, offset: 0 });
-              }
-              return;
+    <div>
+      <div className="rounded-lg border border-line bg-field py-1.5 focus-within:border-theme">
+        {blocks.map((block, index) => (
+          <BlockRow
+            key={block.id}
+            block={block}
+            onFocusRow={(focused) =>
+              setFocusedId((current) => {
+                if (focused) return block.id;
+                return current === block.id ? null : current;
+              })
             }
-            const merged = mergeWithPrevious(blocks, block.id);
-            if (merged) commit(merged.blocks, merged.focus);
-          }}
-          onFocusSibling={(direction) => {
-            const sibling = blocks[index + direction];
-            if (!sibling) return false;
-            const area = areas.current.get(sibling.id);
-            if (!area) return false;
-            area.focus();
-            const offset = direction < 0 ? area.value.length : 0;
-            area.setSelectionRange(offset, offset);
-            return true;
-          }}
-          onOpen={(pageId) => {
-            const target = db.series.find((item) => item.id === pageId) ??
-              db.episodes.find((item) => item.id === pageId) ??
-              db.characters.find((item) => item.id === pageId);
-            if (target) navigate(pathOf(db, target));
-          }}
-          onCreate={(title) =>
-            store.update((draft) => createCharacter(draft, { title }))
-          }
-          isLink={(pageId) => pageIds.has(pageId)}
-        />
-      ))}
+            pages={suggestable}
+            hintOf={(item) => hintOf(db, item)}
+            register={(area) => {
+              if (area) areas.current.set(block.id, area);
+              else areas.current.delete(block.id);
+            }}
+            onRuns={(runs, caret) =>
+              commit(
+                replaceBlock(blocks, block.id, (item) => ({ ...item, runs })),
+                caret === undefined ? undefined : { id: block.id, offset: caret },
+              )
+            }
+            onTime={(at) => commit(replaceBlock(blocks, block.id, (item) => blockWithTime(item, at)))}
+            onSplit={(runs, offset) => {
+              const newId = crypto.randomUUID();
+              const replaced = replaceBlock(blocks, block.id, (item) => ({ ...item, runs }));
+              commit(splitBlock(replaced, block.id, offset, newId), { id: newId, offset: 0 });
+            }}
+            onMerge={() => {
+              if (index === 0) {
+                if (blocks.length > 1 && block.runs.length === 0 && blockTime(block) === "") {
+                  commit(blocks.slice(1), { id: blocks[1].id, offset: 0 });
+                }
+                return;
+              }
+              const merged = mergeWithPrevious(blocks, block.id);
+              if (merged) commit(merged.blocks, merged.focus);
+            }}
+            onFocusSibling={(direction) => {
+              const sibling = blocks[index + direction];
+              if (!sibling) return false;
+              const area = areas.current.get(sibling.id);
+              if (!area) return false;
+              area.focus();
+              const offset = direction < 0 ? area.value.length : 0;
+              area.setSelectionRange(offset, offset);
+              return true;
+            }}
+            onOpen={(pageId) => {
+              const target = db.series.find((item) => item.id === pageId) ??
+                db.episodes.find((item) => item.id === pageId) ??
+                db.characters.find((item) => item.id === pageId);
+              if (target) navigate(pathOf(db, target));
+            }}
+            onCreate={(title) =>
+              store.update((draft) => createCharacter(draft, { title }))
+            }
+            isLink={(pageId) => pageIds.has(pageId)}
+          />
+        ))}
+      </div>
+      {/* 左の外に出す余白が無い幅では、フォーカスしている行の書いた時刻を欄の下に出す */}
+      {focusedAt ? (
+        <p className="mt-1 xl:hidden">
+          <WrittenAt value={focusedAt} />
+        </p>
+      ) : null}
     </div>
   );
 }
 
 function BlockRow({
   block,
+  onFocusRow,
   pages,
   hintOf,
   register,
@@ -147,6 +169,7 @@ function BlockRow({
   isLink,
 }: {
   block: MemoBlock;
+  onFocusRow: (focused: boolean) => void;
   pages: Page[];
   hintOf: (page: Page) => string | undefined;
   register: (area: HTMLTextAreaElement | null) => void;
@@ -238,9 +261,20 @@ function BlockRow({
   };
 
   return (
-    <div className="group -mx-2 grid grid-cols-[5rem_minmax(0,1fr)] gap-3 rounded-md px-2 py-0.5 focus-within:bg-surface hover:bg-surface">
+    <div
+      onFocus={() => onFocusRow(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) onFocusRow(false);
+      }}
+      className="group relative grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 pr-3"
+    >
+      {block.writtenAt ? (
+        <span className="pointer-events-none absolute top-0 right-full mr-2 hidden text-right xl:group-focus-within:block">
+          <WrittenAt value={block.writtenAt} stacked />
+        </span>
+      ) : null}
       <input
-        aria-label="時刻"
+        aria-label="話の中の時刻"
         value={time}
         placeholder="--:--"
         onChange={(event) => setTime(event.target.value)}
@@ -251,9 +285,7 @@ function BlockRow({
           if (event.nativeEvent.isComposing) return;
           if (event.key === "Enter") event.currentTarget.blur();
         }}
-        className={`h-7 min-w-0 bg-transparent font-mono text-xs leading-7 text-theme outline-none placeholder:text-muted/50 ${
-          time ? "" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
-        }`}
+        className="h-7 min-w-0 border-r border-line bg-transparent px-3 font-mono text-xs leading-7 text-theme outline-none placeholder:text-muted/60 focus:placeholder:text-muted"
       />
       <div className="relative leading-7">
         <div
@@ -300,6 +332,34 @@ function BlockRow({
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * 現実で書いた時刻。書いたときの時差のまま、年月日と時分秒を出す。
+ * stacked は行の左の外に出すとき。余白に収まるよう、年月日と時分秒を2段にして行の高さに合わせる。
+ * 幅は年月日の10文字で決まり、時分秒の8文字は収まる。
+ */
+function WrittenAt({ value, stacked = false }: { value: string; stacked?: boolean }) {
+  const date = value.slice(0, 10).replaceAll("-", "/");
+  const time = value.slice(11, 19);
+  return (
+    <time
+      dateTime={value}
+      title={value}
+      className={`whitespace-nowrap font-mono text-muted ${
+        stacked ? "flex flex-col text-[10px] leading-[14px]" : "text-xs"
+      }`}
+    >
+      {stacked ? (
+        <>
+          <span>{date}</span>
+          <span>{time}</span>
+        </>
+      ) : (
+        `${date} ${time}`
+      )}
+    </time>
   );
 }
 

@@ -1,5 +1,6 @@
 /**
  * 1st で保存するもの。
+ * 実況は、見ながらのリアクション（「この表情かわいすぎる！」など）。
  * 実況に要るのは話と、その一覧を持つシリーズ。
  * キャラクターはサイドパネル用。スタッフと楽曲はまだ入れない。
  *
@@ -18,19 +19,23 @@ export interface MemoBody {
   blocks: MemoBlock[];
 }
 
-export type MemoBlock =
-  | {
-      id: string;
-      type: "text";
-      runs: TextRun[];
-    }
-  | {
-      id: string;
-      type: "timecode";
-      /** 視聴位置。秒数ではなく、書いた人が読む表記 */
-      at: string;
-      runs: TextRun[];
-    };
+/**
+ * 本文の1行。行ごとに、話の中のいつか（at）と、現実のいつ書いたか（writtenAt）を持つ。
+ */
+export interface MemoBlock {
+  id: string;
+  /**
+   * 話の中の位置。秒数ではなく、書いた人が読む表記。「11:10」
+   * 一時停止して考察を書いたときなど、話の中の位置が無い行は null
+   */
+  at: string | null;
+  /**
+   * 現実で最初に書いた時刻。時差付きの ISO 8601。「2026-10-01T21:12:30+09:00」
+   * まだ何も書いていない行と、記録する前に書いた行は null
+   */
+  writtenAt: string | null;
+  runs: TextRun[];
+}
 
 export interface PageFields {
   id: string;
@@ -59,7 +64,7 @@ export interface Episode extends PageFields {
   label: string;
   /** 同じシリーズ内の並び。間に足せるよう 10, 20, 30 と空ける */
   sortKey: number;
-  /** 放送日・公開日。不明なら null。YYYY-MM-DD */
+  /** 放送日・公開日。視聴日ではない。不明なら null。YYYY-MM-DD */
   airedOn: string | null;
   /**
    * この話のサイドパネルに出すキャラクター。

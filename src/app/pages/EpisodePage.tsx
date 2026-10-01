@@ -69,13 +69,15 @@ function EpisodeView({
                     className="h-7 font-semibold text-theme"
                   />
                 </div>
-                <input
-                  type="date"
-                  aria-label="放送日"
-                  value={episode.airedOn ?? ""}
-                  onChange={(event) => update({ airedOn: event.target.value || null })}
-                  className="field field-sm font-mono text-muted"
-                />
+                <label className="flex items-center gap-2">
+                  <span className="label">{panel.collapsed ? "公開日" : "放送日"}</span>
+                  <input
+                    type="date"
+                    value={episode.airedOn ?? ""}
+                    onChange={(event) => update({ airedOn: event.target.value || null })}
+                    className="field field-sm font-mono text-muted"
+                  />
+                </label>
               </div>
               <TitleFields
                 page={episode}

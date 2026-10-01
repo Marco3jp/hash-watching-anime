@@ -78,6 +78,7 @@ async function main() {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       locale: "ja-JP",
+      timezoneId: "Asia/Tokyo",
       colorScheme: "dark",
     });
     await context.addInitScript(
@@ -91,6 +92,8 @@ async function main() {
       { keys: storageKeys, data: db },
     );
     const page = await context.newPage();
+    // 本文の行に入る書いた時刻を、撮るたびに変えない
+    await page.clock.setFixedTime(new Date("2026-10-01T21:20:00+09:00"));
 
     const shots = [
       { name: "home", path: "/" },
@@ -112,12 +115,21 @@ async function main() {
       console.log(`  保存完了: ${dest}`);
     }
 
+    console.log("  撮影中: episode-focus");
+    await page.goto(`${baseUrl}/episodes/${first.id}`);
+    await settle(page);
+    await page.getByRole("textbox", { name: "本文" }).nth(3).click();
+    await settle(page);
+    const focusDest = join(screenshotsDir, "episode-focus.png");
+    await page.screenshot({ path: focusDest, fullPage: true });
+    console.log(`  保存完了: ${focusDest}`);
+
     console.log("  撮影中: suggest");
     await page.goto(`${baseUrl}/episodes/${second.id}`);
     await settle(page);
     const body = page.getByRole("textbox", { name: "本文" }).first();
     await body.click();
-    await body.pressSequentially("部室で@");
+    await body.pressSequentially("ここの@");
     await page.keyboard.type("六");
     await page.getByRole("listbox").waitFor();
     await settle(page);

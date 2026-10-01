@@ -4,9 +4,12 @@ import {
   blockWithTime,
   insertLink,
   linkAt,
+  localTimestamp,
   mergeWithPrevious,
+  normalizeBlock,
   plainText,
   splitBlock,
+  stampWritten,
 } from "./body.ts";
 import type { MemoBlock, TextRun } from "./types.ts";
 
@@ -17,8 +20,18 @@ const withLink: TextRun[] = [
 ];
 
 const twoBlocks: MemoBlock[] = [
-  { id: "a", type: "timecode", at: "00:02:10", runs: [{ text: "前の行" }] },
-  { id: "b", type: "text", runs: [{ text: "後ろ", pageId: "p" }, { text: "の行" }] },
+  {
+    id: "a",
+    at: "02:10",
+    writtenAt: "2026-10-01T21:12:30+09:00",
+    runs: [{ text: "前の行" }],
+  },
+  {
+    id: "b",
+    at: null,
+    writtenAt: null,
+    runs: [{ text: "後ろ", pageId: "p" }, { text: "の行" }],
+  },
 ];
 
 describe("applyTextEdit", () => {
@@ -80,12 +93,22 @@ describe("linkAt", () => {
 });
 
 describe("splitBlock", () => {
-  it("後ろ半分を新しい text ブロックにし、時刻は前に残す", () => {
+  it("後ろ半分を新しい行にし、話の中の時刻は前に残す。書いた時刻は両方に残す", () => {
     const blocks = splitBlock(twoBlocks, "a", 1, "new");
     expect(blocks.map((block) => block.id)).toEqual(["a", "new", "b"]);
-    expect(blocks[0]).toMatchObject({ type: "timecode", at: "00:02:10" });
+    expect(blocks[0]).toMatchObject({ at: "02:10" });
     expect(plainText(blocks[0].runs)).toBe("前");
-    expect(blocks[1]).toEqual({ id: "new", type: "text", runs: [{ text: "の行" }] });
+    expect(blocks[1]).toEqual({
+      id: "new",
+      at: null,
+      writtenAt: "2026-10-01T21:12:30+09:00",
+      runs: [{ text: "の行" }],
+    });
+  });
+
+  it("行末で切った新しい行は、まだ書いた時刻が無い", () => {
+    const blocks = splitBlock(twoBlocks, "a", 3, "new");
+    expect(blocks[1]).toEqual({ id: "new", at: null, writtenAt: null, runs: [] });
   });
 });
 
@@ -107,11 +130,40 @@ describe("mergeWithPrevious", () => {
 });
 
 describe("blockWithTime", () => {
-  it("時刻が空なら text、入っていれば timecode", () => {
-    expect(blockWithTime(twoBlocks[0], " ").type).toBe("text");
-    expect(blockWithTime(twoBlocks[1], "00:10")).toMatchObject({
-      type: "timecode",
-      at: "00:10",
+  it("話の中の時刻が空なら null", () => {
+    expect(blockWithTime(twoBlocks[0], " ").at).toBeNull();
+    expect(blockWithTime(twoBlocks[1], "11:10").at).toBe("11:10");
+  });
+});
+
+describe("stampWritten", () => {
+  it("書いた時刻の無い行に、何か入っていれば入れる", () => {
+    const empty: MemoBlock = { id: "c", at: null, writtenAt: null, runs: [] };
+    const blocks = stampWritten([...twoBlocks, empty], "2026-10-02T00:00:00+09:00");
+    expect(blocks[0].writtenAt).toBe("2026-10-01T21:12:30+09:00");
+    expect(blocks[1].writtenAt).toBe("2026-10-02T00:00:00+09:00");
+    expect(blocks[2].writtenAt).toBeNull();
+  });
+});
+
+describe("localTimestamp", () => {
+  it("手元の時差を付けた形にする", () => {
+    expect(localTimestamp(new Date())).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/,
+    );
+  });
+});
+
+describe("normalizeBlock", () => {
+  it("前の版の timecode と text を、いまの形に直す", () => {
+    expect(
+      normalizeBlock({ id: "a", type: "timecode", at: "00:02:10", runs: [{ text: "前" }] }),
+    ).toEqual({ id: "a", at: "00:02:10", writtenAt: null, runs: [{ text: "前" }] });
+    expect(normalizeBlock({ id: "b", type: "text", runs: [] })).toEqual({
+      id: "b",
+      at: null,
+      writtenAt: null,
+      runs: [],
     });
   });
 });
