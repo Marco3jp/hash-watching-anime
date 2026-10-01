@@ -115,6 +115,15 @@ async function main() {
       console.log(`  保存完了: ${dest}`);
     }
 
+    console.log("  撮影中: episode-focus");
+    await page.goto(`${baseUrl}/episodes/${first.id}`);
+    await settle(page);
+    await page.getByRole("textbox", { name: "本文" }).nth(3).click();
+    await settle(page);
+    const focusDest = join(screenshotsDir, "episode-focus.png");
+    await page.screenshot({ path: focusDest, fullPage: true });
+    console.log(`  保存完了: ${focusDest}`);
+
     console.log("  撮影中: suggest");
     await page.goto(`${baseUrl}/episodes/${second.id}`);
     await settle(page);
