@@ -336,12 +336,13 @@ function BlockRow({
 }
 
 /**
- * 現実で書いた時刻。書いたときの時差のまま、年月日と時分を出す。
- * stacked は行の左の外に出すとき。余白に収まるよう、年月日と時分を2段にして行の高さに合わせる。
+ * 現実で書いた時刻。書いたときの時差のまま、年月日と時分秒を出す。
+ * stacked は行の左の外に出すとき。余白に収まるよう、年月日と時分秒を2段にして行の高さに合わせる。
+ * 幅は年月日の10文字で決まり、時分秒の8文字は収まる。
  */
 function WrittenAt({ value, stacked = false }: { value: string; stacked?: boolean }) {
   const date = value.slice(0, 10).replaceAll("-", "/");
-  const time = value.slice(11, 16);
+  const time = value.slice(11, 19);
   return (
     <time
       dateTime={value}
