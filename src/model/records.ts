@@ -2,6 +2,7 @@ import type {
   Appearance,
   Character,
   Database,
+  Deletion,
   Episode,
   MemoBlock,
   MemoBody,
@@ -21,7 +22,7 @@ function now(): string {
 }
 
 export function emptyDatabase(): Database {
-  return { series: [], episodes: [], characters: [] };
+  return { series: [], episodes: [], characters: [], deleted: [] };
 }
 
 export function createSeries(
@@ -249,13 +250,18 @@ export function moveEpisode(
 
 /** 話は seriesId が無いと開けないので、シリーズと一緒に消す */
 export function deleteSeries(db: Database, seriesId: string): void {
-  mustFind(db.series, seriesId);
+  const series = mustFind(db.series, seriesId);
+  const stamp = now();
+  markDeleted(db, series, stamp);
+  for (const episode of db.episodes) {
+    if (episode.seriesId === seriesId) markDeleted(db, episode, stamp);
+  }
   db.series = db.series.filter((item) => item.id !== seriesId);
   db.episodes = db.episodes.filter((item) => item.seriesId !== seriesId);
 }
 
 export function deleteEpisode(db: Database, episodeId: string): void {
-  mustFind(db.episodes, episodeId);
+  markDeleted(db, mustFind(db.episodes, episodeId), now());
   db.episodes = db.episodes.filter((item) => item.id !== episodeId);
 }
 
@@ -264,18 +270,31 @@ export function deleteEpisode(db: Database, episodeId: string): void {
  * 本文の pageId は残す。ページが無いので、ただの文字として出る。
  */
 export function deleteCharacter(db: Database, characterId: string): void {
-  mustFind(db.characters, characterId);
+  markDeleted(db, mustFind(db.characters, characterId), now());
   db.characters = db.characters.filter((item) => item.id !== characterId);
+  // 行を外したシリーズと話も直したことにする。同期で、外す前の版に負けないように
   for (const series of db.series) {
-    series.characters = series.characters.filter(
-      (item) => item.characterId !== characterId,
-    );
+    const rows = series.characters.filter((item) => item.characterId !== characterId);
+    if (rows.length === series.characters.length) continue;
+    series.characters = rows;
+    touch(series);
   }
   for (const episode of db.episodes) {
-    episode.appearances = episode.appearances.filter(
-      (item) => item.characterId !== characterId,
-    );
+    const rows = episode.appearances.filter((item) => item.characterId !== characterId);
+    if (rows.length === episode.appearances.length) continue;
+    episode.appearances = rows;
+    touch(episode);
   }
+}
+
+/** 同じ id の印があれば置き換える */
+export function markDeleted(
+  db: Database,
+  page: { id: string; kind: Deletion["kind"] },
+  deletedAt: string,
+): void {
+  db.deleted = db.deleted.filter((item) => item.id !== page.id);
+  db.deleted.push({ id: page.id, kind: page.kind, deletedAt });
 }
 
 /** title と同じ文字列、空、重複を落とす */

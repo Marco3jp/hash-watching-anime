@@ -1,5 +1,5 @@
 import { normalizeBlock } from "./body.ts";
-import type { Character, Database, Episode, Page, Series } from "./types.ts";
+import type { Character, Database, Deletion, Episode, Page, Series } from "./types.ts";
 
 /**
  * 保存先は LocalStorage。Sparkling Journey と同じく、種類ごとに1キーへ配列を置く。
@@ -9,6 +9,7 @@ export const storageKeys = {
   series: "hash-watching-anime:series:v1",
   episodes: "hash-watching-anime:episodes:v1",
   characters: "hash-watching-anime:characters:v1",
+  deleted: "hash-watching-anime:deleted:v1",
 } as const;
 
 export interface StorageLike {
@@ -44,6 +45,13 @@ export class PageStore {
     return result;
   }
 
+  /** 同期で合流した Database に差し替える */
+  replace(next: Database): void {
+    this.write(next);
+    this.snapshot = next;
+    this.emit();
+  }
+
   /** 別のタブが書いたときに読み直す */
   reload(): void {
     this.snapshot = this.read();
@@ -55,6 +63,7 @@ export class PageStore {
       series: this.readArray<Series>(storageKeys.series),
       episodes: this.readArray<Episode>(storageKeys.episodes),
       characters: this.readArray<Character>(storageKeys.characters),
+      deleted: this.readArray<Deletion>(storageKeys.deleted),
     });
   }
 
@@ -73,6 +82,7 @@ export class PageStore {
     this.storage.setItem(storageKeys.series, JSON.stringify(db.series));
     this.storage.setItem(storageKeys.episodes, JSON.stringify(db.episodes));
     this.storage.setItem(storageKeys.characters, JSON.stringify(db.characters));
+    this.storage.setItem(storageKeys.deleted, JSON.stringify(db.deleted));
   }
 
   private emit(): void {
@@ -80,6 +90,7 @@ export class PageStore {
   }
 }
 
+/** deleted は後から足した。無い JSON も同じ版として読む */
 export interface ExportPayload extends Database {
   version: 1;
   exportedAt: string;
@@ -92,6 +103,7 @@ export function exportJson(db: Database): string {
     series: db.series,
     episodes: db.episodes,
     characters: db.characters,
+    deleted: db.deleted,
   };
   return JSON.stringify(payload, null, 2);
 }
@@ -113,6 +125,7 @@ export function parseExport(json: string): Database {
     series: payload.series,
     episodes: payload.episodes,
     characters: payload.characters,
+    deleted: Array.isArray(payload.deleted) ? payload.deleted : [],
   });
 }
 
@@ -125,6 +138,7 @@ function normalizeDatabase(db: Database): Database {
     series: db.series.map(normalizeBody),
     episodes: db.episodes.map(normalizeBody),
     characters: db.characters.map(normalizeBody),
+    deleted: db.deleted,
   };
 }
 
@@ -166,11 +180,26 @@ export function previewImport(current: Database, incoming: Database): ImportPrev
   };
 }
 
-/** 同じ id は置き換え、無い id は足す。id は引き直さない */
+/**
+ * 同じ id は置き換え、無い id は足す。id は引き直さない。
+ * 読み込みでは消さない。読み込んだ JSON の deleted は見ない。
+ * ここで消したページを読み込んだときは、消した印を外し、いま直したことにする。
+ * 同期で、ほかの端末に残っている消した印に負けないように。
+ */
 export function mergeImport(db: Database, incoming: Database): void {
-  db.series = upsert(db.series, incoming.series);
-  db.episodes = upsert(db.episodes, incoming.episodes);
-  db.characters = upsert(db.characters, incoming.characters);
+  const deleted = new Set(db.deleted.map((item) => item.id));
+  const restored = new Set<string>();
+  const stamp = new Date().toISOString();
+  const revive = <T extends Page>(pages: T[]): T[] =>
+    pages.map((page) => {
+      if (!deleted.has(page.id)) return page;
+      restored.add(page.id);
+      return { ...page, updatedAt: stamp };
+    });
+  db.series = upsert(db.series, revive(incoming.series));
+  db.episodes = upsert(db.episodes, revive(incoming.episodes));
+  db.characters = upsert(db.characters, revive(incoming.characters));
+  db.deleted = db.deleted.filter((item) => !restored.has(item.id));
 }
 
 function upsert<T extends { id: string }>(current: T[], incoming: T[]): T[] {

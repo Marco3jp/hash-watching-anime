@@ -93,8 +93,19 @@ export interface Appearance {
   note: string;
 }
 
+/**
+ * 消したページの印。配列から外すだけだと、同期でほかの端末に残っていたページが新規に見えて戻る。
+ * 消した後にほかの端末で直したページは、直した方を残す（updatedAt が deletedAt より新しいとき）。
+ */
+export interface Deletion {
+  id: string;
+  kind: Page["kind"];
+  deletedAt: string;
+}
+
 export interface Database {
   series: Series[];
   episodes: Episode[];
   characters: Character[];
+  deleted: Deletion[];
 }
