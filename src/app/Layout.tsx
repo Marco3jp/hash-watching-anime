@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { paths } from "./paths.ts";
+import { useSync, useSyncState } from "./store.ts";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `shrink-0 font-medium ${isActive ? "text-theme-dark" : "text-theme hover:text-theme-dark"}`;
 
 export function Layout() {
   const navigate = useNavigate();
+  const sync = useSync();
   const [text, setText] = useState("");
 
   const onSearch = (event: FormEvent) => {
@@ -38,9 +40,10 @@ export function Layout() {
               ホーム
             </NavLink>
             <NavLink to={paths.settings} className={navClass}>
-              書き出しと読み込み
+              {sync ? "同期と書き出し" : "書き出しと読み込み"}
             </NavLink>
           </nav>
+          <SyncBadge />
           <form
             onSubmit={onSearch}
             className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto"
@@ -64,4 +67,26 @@ export function Layout() {
       </main>
     </div>
   );
+}
+
+/** 同期を使っていてトークンが切れたとき、どの面からでもつなぎ直せるように */
+function SyncBadge() {
+  const sync = useSync();
+  const state = useSyncState();
+  if (!sync) return null;
+  if (state.status === "signed-out") {
+    return (
+      <button type="button" onClick={() => void sync.connect()} className="btn btn-sm">
+        ドライブにつなぐ
+      </button>
+    );
+  }
+  if (state.status === "error") {
+    return (
+      <Link to={paths.settings} className="text-sm text-danger">
+        同期できない
+      </Link>
+    );
+  }
+  return null;
 }

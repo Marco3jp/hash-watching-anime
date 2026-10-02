@@ -24,6 +24,20 @@ npm run dev
 - 話のサイドパネルで出演を付ける。出演が無い話は、シリーズの名簿を出す
 - 右上の検索は、題名、別名、話数、本文の文字列で探す
 - 「書き出しと読み込み」で JSON に書き出し、同じ id のまま読み込む
+- Google ドライブと同期できる（OAuth クライアント ID を渡したビルドだけ）。見出しは「同期と書き出し」になる
+
+## Google ドライブと同期
+
+ブラウザから Drive API を直接呼び、Drive の appDataFolder（このアプリだけが見える隠しフォルダ）に `hash-watching-anime.json` を1つ置く。サーバーは無い。
+
+使うには Google Cloud で OAuth クライアント ID を作り、ビルドに `VITE_GOOGLE_CLIENT_ID` で渡す。
+
+1. Google Cloud のプロジェクトで Google Drive API を有効にする
+2. Google Auth platform で同意画面を作る。対象は「外部」。テスト中は、使う Google アカウントをテストユーザーに足す。データアクセスにスコープ `https://www.googleapis.com/auth/drive.appdata` を足す（非機密のスコープ）
+3. クライアントで「ウェブ アプリケーション」の OAuth クライアント ID を作り、承認済みの JavaScript 生成元に `https://marco3jp.github.io` を足す。手元で試すなら `http://localhost` と `http://localhost:43123` も足し、開発サーバーを localhost で開く
+4. GitHub のリポジトリの Settings → Secrets and variables → Actions → Variables に `GOOGLE_CLIENT_ID` を置く。手元では `.env.local` に `VITE_GOOGLE_CLIENT_ID=...`
+
+クライアント ID はページに埋め込まれて誰でも読めるもので、秘密ではない。
 
 ## 中身
 
@@ -33,6 +47,8 @@ npm run dev
 - `src/model/body.ts` — 本文の textarea の差分を `TextRun` に写す。行の分割と結合
 - `src/model/search.ts` — 検索とサジェストの候補
 - `src/model/storage.ts` — LocalStorage への保存、JSON の書き出しと読み込み
+- `src/model/sync.ts` — 同期で、手元とドライブの Database をページ単位で合わせる
+- `src/sync/` — Google のトークン、Drive API、同期の段取り
 - `src/model/example.ts` — 『中二病でも恋がしたい！』周辺の見本。テストとスクショのシード
 - `src/app/` — 画面。ページは `src/router.tsx`
 

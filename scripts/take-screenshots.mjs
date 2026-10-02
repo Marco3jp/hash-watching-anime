@@ -8,6 +8,9 @@
  * Sparkling Journey と同じく addInitScript で localStorage へ注入してから、
  * 各ページを screenshots/ に保存する。システムの Google Chrome を使う。
  * 配色は OS の設定に従うので、撮る側で固定する。基本はダーク、ホームだけライトも撮る。
+ *
+ * 同期の面を出すため、OAuth クライアント ID にダミーを渡す。
+ * Google のスクリプトと Drive API は fakeGoogle で返し、外へは出ない。
  */
 
 import { chromium } from "@playwright/test";
@@ -42,6 +45,50 @@ async function settle(page) {
   await page.waitForLoadState("networkidle");
 }
 
+/**
+ * Google Identity Services と Drive API の代わり。
+ * トークンはすぐ返し、Drive の appDataFolder は1ファイルだけをメモリに持つ。
+ */
+async function fakeGoogle(context) {
+  await context.route("https://accounts.google.com/gsi/client", (route) =>
+    route.fulfill({
+      contentType: "text/javascript",
+      body: `window.google = { accounts: { oauth2: {
+        initTokenClient: (config) => ({
+          requestAccessToken: () => setTimeout(() => config.callback({ access_token: "fake", expires_in: 3599 }), 0),
+        }),
+        revoke: () => {},
+      } } };`,
+    }),
+  );
+  let file = null;
+  await context.route("https://www.googleapis.com/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const json = (body) => route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
+    if (request.method() === "GET" && url.pathname === "/drive/v3/files") {
+      return json({ files: file ? [{ id: file.id }] : [] });
+    }
+    if (request.method() === "GET" && url.searchParams.get("alt") === "media") {
+      return route.fulfill({ contentType: "application/json", body: file.text });
+    }
+    if (request.method() === "POST" && url.searchParams.get("uploadType") === "multipart") {
+      const boundary = request.headers()["content-type"].split("boundary=")[1];
+      const parts = request.postData().split(`--${boundary}`);
+      const metadata = JSON.parse(parts[1].split("\r\n\r\n")[1]);
+      if (metadata.parents?.[0] !== "appDataFolder") throw new Error("appDataFolder ではない");
+      file = { id: "fake-file", text: parts[2].split("\r\n\r\n").slice(1).join("\r\n\r\n").replace(/\r\n$/, "") };
+      return json({ id: file.id });
+    }
+    if (request.method() === "PATCH" && url.searchParams.get("uploadType") === "media") {
+      file = { id: file.id, text: request.postData() };
+      return json({ id: file.id });
+    }
+    return route.fulfill({ status: 404, body: "" });
+  });
+  return { read: () => file };
+}
+
 function byTitle(items, title) {
   const found = items.find((item) => item.title === title);
   if (!found) throw new Error(`見本に無い: ${title}`);
@@ -50,6 +97,7 @@ function byTitle(items, title) {
 
 async function main() {
   await mkdir(screenshotsDir, { recursive: true });
+  process.env.VITE_GOOGLE_CLIENT_ID ??= "screenshot.apps.googleusercontent.com";
 
   const server = await createServer({
     root: rootDir,
@@ -81,6 +129,7 @@ async function main() {
       timezoneId: "Asia/Tokyo",
       colorScheme: "dark",
     });
+    const drive = await fakeGoogle(context);
     await context.addInitScript(
       ({ keys, data }) => {
         if (sessionStorage.getItem("seeded")) return;
@@ -144,6 +193,22 @@ async function main() {
     const lightDest = join(screenshotsDir, "home-light.png");
     await page.screenshot({ path: lightDest, fullPage: true });
     console.log(`  保存完了: ${lightDest}`);
+
+    console.log("  撮影中: settings-sync");
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto(`${baseUrl}/settings`);
+    await settle(page);
+    await page.getByRole("button", { name: "同期する" }).click();
+    await page.getByText("最後に同期").waitFor();
+    // 押したボタンに hover が残らないように
+    await page.mouse.move(1279, 799);
+    if (JSON.parse(drive.read().text).series.length !== db.series.length) {
+      throw new Error("ドライブに上げた JSON が手元と違う");
+    }
+    await settle(page);
+    const syncDest = join(screenshotsDir, "settings-sync.png");
+    await page.screenshot({ path: syncDest, fullPage: true });
+    console.log(`  保存完了: ${syncDest}`);
 
     await browser.close();
     console.log("\nすべてのスクリーンショットを保存しました:", screenshotsDir);
