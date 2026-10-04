@@ -161,16 +161,32 @@ describe("create してから紐づける", () => {
 describe("airedOnCandidates", () => {
   const at = (airedOn: string | null) => ({ ...episodeByTitle(firstTitle), airedOn });
 
-  it("前の話の1週後と2週後、次の話の1週前と2週前を古い順に出す", () => {
+  it("前の話の1週後と2週後、次の話の1週前と2週前を、元の日付と組にして出す", () => {
     expect(airedOnCandidates(at("2012-10-03"), at("2012-10-31"))).toEqual([
-      "2012-10-10",
-      "2012-10-17",
-      "2012-10-24",
+      {
+        from: "previous",
+        base: "2012-10-03",
+        dates: [
+          { weeks: 1, date: "2012-10-10" },
+          { weeks: 2, date: "2012-10-17" },
+        ],
+      },
+      {
+        from: "next",
+        base: "2012-10-31",
+        dates: [
+          { weeks: -1, date: "2012-10-24" },
+          { weeks: -2, date: "2012-10-17" },
+        ],
+      },
     ]);
   });
 
   it("月と年をまたいで数える", () => {
-    expect(airedOnCandidates(at("2012-12-26"), null)).toEqual(["2013-01-02", "2013-01-09"]);
+    expect(airedOnCandidates(at("2012-12-26"), null)[0].dates.map((item) => item.date)).toEqual([
+      "2013-01-02",
+      "2013-01-09",
+    ]);
   });
 
   it("前後の話に日付が無ければ出さない", () => {

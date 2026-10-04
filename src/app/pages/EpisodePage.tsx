@@ -27,7 +27,7 @@ import {
 import { PageSuggest } from "../components/PageSuggest.tsx";
 import { PlaybackBar } from "../components/PlaybackBar.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
-import { pageName, paths, seriesName } from "../paths.ts";
+import { dateLabel, pageName, paths, seriesName, weekdayOf } from "../paths.ts";
 import { currentTime } from "../playback.ts";
 import { useDatabase, useStore } from "../store.ts";
 
@@ -87,21 +87,14 @@ function EpisodeView({
                     className="field field-sm font-mono text-muted"
                   />
                 </label>
-                {episode.airedOn === null && !panel.collapsed ? (
-                  <span className="flex flex-wrap gap-1">
-                    {airedOnCandidates(panel.previous, panel.next).map((date) => (
-                      <button
-                        key={date}
-                        type="button"
-                        onClick={() => update({ airedOn: date })}
-                        className="btn btn-sm font-mono font-normal text-muted"
-                      >
-                        {date.replaceAll("-", "/")}
-                      </button>
-                    ))}
-                  </span>
-                ) : null}
               </div>
+              {episode.airedOn === null && !panel.collapsed ? (
+                <AiredOnSuggest
+                  previous={panel.previous}
+                  next={panel.next}
+                  onPick={(airedOn) => update({ airedOn })}
+                />
+              ) : null}
               <TitleFields
                 page={episode}
                 onTitle={(title) => update({ title })}
@@ -149,6 +142,56 @@ function EpisodeView({
         </>
       }
     />
+  );
+}
+
+/**
+ * 放送日が空のとき、前後の話の放送日から1週と2週ずらした日を出す。
+ * 前回がいつか分かるよう、元の日付を1度だけ出し、ボタンはずらした週と月日だけにする
+ */
+function AiredOnSuggest({
+  previous,
+  next,
+  onPick,
+}: {
+  previous: Episode | null;
+  next: Episode | null;
+  onPick: (airedOn: string) => void;
+}) {
+  const groups = airedOnCandidates(previous, next);
+  if (groups.length === 0) return null;
+  return (
+    <div className="mb-1 space-y-1">
+      {groups.map((group) => (
+        <p key={group.from} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+          <span>{group.from === "previous" ? "前回" : "次回"}</span>
+          <DateText date={group.base} withYear />
+          <span aria-hidden>→</span>
+          {group.dates.map(({ weeks, date }) => (
+            <button
+              key={date}
+              type="button"
+              title={dateLabel(date)}
+              onClick={() => onPick(date)}
+              className="btn btn-sm font-normal text-muted"
+            >
+              {weeks > 0 ? `+${weeks}週` : `−${-weeks}週`}
+              <DateText date={date} />
+            </button>
+          ))}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/** 日付は等幅で、曜日は本文の字で出す。等幅の字には日本語が無いことがある */
+function DateText({ date, withYear = false }: { date: string; withYear?: boolean }) {
+  return (
+    <span>
+      <span className="font-mono">{(withYear ? date : date.slice(5)).replaceAll("-", "/")}</span>(
+      {weekdayOf(date)})
+    </span>
   );
 }
 
