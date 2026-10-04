@@ -67,6 +67,18 @@ describe("PageStore", () => {
     expect(block("b-e1-pause")).toMatchObject({ at: null, writtenAt: null });
   });
 
+  it("話の長さの無い前の版の話は、読むときに null で埋める", () => {
+    const storage = new MemoryStorage();
+    const old = buildExample().episodes.map((episode) => {
+      const { duration: _, ...rest } = episode;
+      return rest;
+    });
+    storage.setItem(storageKeys.episodes, JSON.stringify(old));
+    const episodes = new PageStore(storage).getSnapshot().episodes;
+    expect(episodes).toHaveLength(old.length);
+    expect(episodes.every((item) => item.duration === null)).toBe(true);
+  });
+
   it("壊れた JSON のキーは空の配列として読む", () => {
     const storage = new MemoryStorage();
     storage.setItem(storageKeys.characters, "{");

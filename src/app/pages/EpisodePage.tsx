@@ -23,8 +23,10 @@ import {
   SideBlock,
 } from "../components/PageFrame.tsx";
 import { PageSuggest } from "../components/PageSuggest.tsx";
+import { PlaybackBar } from "../components/PlaybackBar.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
 import { pageName, paths, seriesName } from "../paths.ts";
+import { currentTime } from "../playback.ts";
 import { useDatabase, useStore } from "../store.ts";
 
 export function EpisodePage() {
@@ -98,7 +100,13 @@ function EpisodeView({
           </div>
         </>
       }
-      body={<BodyEditor page={episode} />}
+      body={
+        <>
+          <BodyEditor page={episode} clock={() => currentTime(episode)} />
+          {/* 画面下に固定するので、置く場所は見た目に関わらない */}
+          <PlaybackBar episode={episode} onDuration={(duration) => update({ duration })} />
+        </>
+      }
       side={
         <>
           <SideBlock title="シリーズ">
