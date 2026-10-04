@@ -3,9 +3,11 @@ import { exampleDb } from "./example.ts";
 import {
   addAppearance,
   addSeasonCharacter,
+  addSeriesSeason,
   createCharacter,
   createEpisode,
   createSeason,
+  createSeries,
   emptyDatabase,
 } from "./records.ts";
 import {
@@ -14,6 +16,8 @@ import {
   buildEpisodeSidePanel,
   linkedPages,
   openSeason,
+  seasonsByRecent,
+  seriesByRecent,
 } from "./views.ts";
 
 const firstTitle = "邂逅の…邪王真眼";
@@ -192,5 +196,57 @@ describe("airedOnCandidates", () => {
   it("前後の話に日付が無ければ出さない", () => {
     expect(airedOnCandidates(at(null), null)).toEqual([]);
     expect(airedOnCandidates(null, at(null))).toEqual([]);
+  });
+});
+
+describe("seasonsByRecent / seriesByRecent", () => {
+  function setUp() {
+    const db = emptyDatabase();
+    const a = createSeason(db, { title: "A", unit: "serial" });
+    const b = createSeason(db, { title: "B", unit: "serial" });
+    const c = createSeason(db, { title: "C", unit: "serial" });
+    const a1 = createEpisode(db, { seasonId: a.id, title: "a1", label: "1", airedOn: null });
+    const a2 = createEpisode(db, { seasonId: a.id, title: "a2", label: "2", airedOn: null });
+    const b1 = createEpisode(db, { seasonId: b.id, title: "b1", label: "1", airedOn: null });
+    a.updatedAt = "2026-10-01T00:00:00.000Z";
+    b.updatedAt = "2026-10-01T00:00:00.000Z";
+    c.updatedAt = "2026-10-02T00:00:00.000Z";
+    a1.updatedAt = "2026-10-03T00:00:00.000Z";
+    a2.updatedAt = "2026-10-01T00:00:00.000Z";
+    b1.updatedAt = "2026-10-04T00:00:00.000Z";
+    return { db, a, b, c, a1 };
+  }
+
+  it("シーズンは、話の updatedAt の最新が新しい順。話が無ければシーズン自身", () => {
+    const { db } = setUp();
+    expect(seasonsByRecent(db).map((item) => item.title)).toEqual(["B", "A", "C"]);
+  });
+
+  it("シーズン自身を直しても、話があれば並びは変わらない", () => {
+    const { db, a } = setUp();
+    a.updatedAt = "2026-10-09T00:00:00.000Z";
+    expect(seasonsByRecent(db).map((item) => item.title)).toEqual(["B", "A", "C"]);
+  });
+
+  it("シリーズは、入っているシーズンの最新が新しい順。シーズンが無ければシリーズ自身", () => {
+    const { db, a, b, c } = setUp();
+    const x = createSeries(db, { title: "X" });
+    const y = createSeries(db, { title: "Y" });
+    const z = createSeries(db, { title: "Z" });
+    addSeriesSeason(db, x.id, { seasonId: a.id });
+    addSeriesSeason(db, x.id, { seasonId: c.id });
+    addSeriesSeason(db, y.id, { seasonId: b.id });
+    x.updatedAt = "2026-10-01T00:00:00.000Z";
+    y.updatedAt = "2026-10-01T00:00:00.000Z";
+    z.updatedAt = "2026-10-05T00:00:00.000Z";
+    expect(seriesByRecent(db).map((item) => item.title)).toEqual(["Z", "Y", "X"]);
+  });
+
+  it("同じ時刻なら保存の順", () => {
+    const db = emptyDatabase();
+    for (const title of ["A", "B", "C"]) {
+      createSeason(db, { title, unit: "serial" }).updatedAt = "2026-10-01T00:00:00.000Z";
+    }
+    expect(seasonsByRecent(db).map((item) => item.title)).toEqual(["A", "B", "C"]);
   });
 });

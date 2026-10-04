@@ -6,7 +6,7 @@ import {
   createSeason,
 } from "../../model/records.ts";
 import type { SeasonUnit } from "../../model/types.ts";
-import { episodesIn } from "../../model/views.ts";
+import { episodesIn, seasonsByRecent, seriesByRecent } from "../../model/views.ts";
 import { paths, pathOf, hashName, unitLabel } from "../paths.ts";
 import { JumpSuggest } from "../components/JumpSuggest.tsx";
 import { UnitToggle } from "../components/UnitToggle.tsx";
@@ -23,7 +23,7 @@ export function HomePage() {
           <section>
             <h2 className="text-2xl font-semibold">シリーズ</h2>
             <ul className="mt-6 divide-y divide-line border-y border-line">
-              {db.series.map((series) => {
+              {seriesByRecent(db).map((series) => {
                 const seasons = series.seasons.flatMap((row) => {
                   const season = db.seasons.find((item) => item.id === row.seasonId);
                   return season ? [season] : [];
@@ -59,7 +59,7 @@ export function HomePage() {
           <CreateSeason />
           {db.seasons.length === 0 ? null : (
             <ul className="mt-6 divide-y divide-line border-y border-line">
-              {db.seasons.map((season) => {
+              {seasonsByRecent(db).map((season) => {
                 const episodes = episodesIn(db, season.id);
                 return (
                   <li key={season.id}>
