@@ -2,8 +2,9 @@ import { useState, type FormEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { pagesOf } from "../model/views.ts";
 import { JumpSuggest } from "./components/JumpSuggest.tsx";
+import { BrokenStorage } from "./components/Recovery.tsx";
 import { paths, seriesName } from "./paths.ts";
-import { useDatabase } from "./store.ts";
+import { useDatabase, useStoreStatus } from "./store.ts";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `shrink-0 font-medium ${isActive ? "text-theme-dark" : "text-theme hover:text-theme-dark"}`;
@@ -11,6 +12,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 export function Layout() {
   const navigate = useNavigate();
   const db = useDatabase();
+  const status = useStoreStatus();
   const [text, setText] = useState("");
 
   const onSearch = (event: FormEvent) => {
@@ -70,7 +72,7 @@ export function Layout() {
         </div>
       </header>
       <main className="mx-auto box-border w-full max-w-6xl flex-1 px-4 pt-8 pb-24">
-        <Outlet />
+        {status.kind === "broken" ? <BrokenStorage message={status.message} /> : <Outlet />}
       </main>
     </div>
   );

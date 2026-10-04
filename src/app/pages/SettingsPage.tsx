@@ -8,6 +8,7 @@ import {
   type ImportPreview,
 } from "../../model/storage.ts";
 import type { Database } from "../../model/types.ts";
+import { downloadJson } from "../download.ts";
 import { useDatabase, useStore } from "../store.ts";
 
 export function SettingsPage() {
@@ -19,13 +20,7 @@ export function SettingsPage() {
   const [done, setDone] = useState<string | null>(null);
 
   const onExport = () => {
-    const blob = new Blob([exportJson(db)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `hash-watching-anime-${new Date().toISOString().slice(0, 10)}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    downloadJson("", exportJson(db));
   };
 
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -119,6 +114,13 @@ export function SettingsPage() {
             <li key={key}>{key}</li>
           ))}
         </ul>
+        <button
+          type="button"
+          onClick={() => downloadJson("raw", store.dumpRaw())}
+          className="btn btn-sm mt-3"
+        >
+          保存してあるデータをそのまま書き出す
+        </button>
       </section>
     </div>
   );

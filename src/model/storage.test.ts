@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { buildExample } from "./example.ts";
+import v1Export from "./fixtures/v1.json";
 import { createCharacter, createSeries, emptyDatabase } from "./records.ts";
 import {
   PageStore,
+  dumpRaw,
   exportJson,
   mergeImport,
   parseExport,
   previewImport,
+  readStorage,
   storageKeys,
+  type Schema,
   type StorageLike,
 } from "./storage.ts";
 
@@ -79,10 +83,92 @@ describe("PageStore", () => {
     expect(episodes.every((item) => item.duration === null)).toBe(true);
   });
 
-  it("壊れた JSON のキーは空の配列として読む", () => {
+  it("壊れた JSON のキーがあると、読めないとして書き込まない", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(storageKeys.series, JSON.stringify(buildExample().series));
+    storage.setItem(storageKeys.characters, "{");
+    const store = new PageStore(storage);
+    expect(store.getStatus()).toMatchObject({ kind: "broken" });
+    expect(() => store.update((db) => createCharacter(db, { title: "勇太" }))).toThrow();
+    expect(storage.getItem(storageKeys.characters)).toBe("{");
+    expect(JSON.parse(storage.getItem(storageKeys.series)!)).toHaveLength(4);
+  });
+
+  it("配列でないキーも、読めないとして扱う", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(storageKeys.episodes, JSON.stringify({ id: "x" }));
+    expect(new PageStore(storage).getStatus()).toMatchObject({ kind: "broken" });
+  });
+
+  it("ページの形が崩れていても、読めないとして扱う", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(storageKeys.episodes, JSON.stringify([null]));
+    expect(new PageStore(storage).getStatus()).toMatchObject({ kind: "broken" });
+  });
+
+  it("読めないデータも、そのままの文字列で持ち出せる", () => {
     const storage = new MemoryStorage();
     storage.setItem(storageKeys.characters, "{");
-    expect(new PageStore(storage).getSnapshot().characters).toEqual([]);
+    const dump = JSON.parse(new PageStore(storage).dumpRaw());
+    expect(dump.raw).toEqual({ [storageKeys.characters]: "{" });
+  });
+
+  it("外して始めると、読めなかったキーだけを消し、読めたキーは残す", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(storageKeys.series, JSON.stringify(buildExample().series));
+    storage.setItem(storageKeys.characters, "{");
+    const store = new PageStore(storage);
+    store.discardBroken();
+    expect(store.getStatus()).toMatchObject({ kind: "ok" });
+    expect(store.getSnapshot().series).toHaveLength(4);
+    store.update((db) => createCharacter(db, { title: "勇太" }));
+    expect(JSON.parse(storage.getItem(storageKeys.characters)!)).toHaveLength(1);
+  });
+
+  it("空の LocalStorage は、何も書かずに空で始める", () => {
+    const storage = new MemoryStorage();
+    const store = new PageStore(storage);
+    expect(store.getStatus()).toEqual({ kind: "ok", migratedFrom: null });
+    expect(storage.getItem(storageKeys.series)).toBeNull();
+  });
+});
+
+describe("readStorage の版の移行", () => {
+  // v2 で notes を足した、という架空の版で確かめる
+  const schema: Schema = {
+    current: 2,
+    collections: { 1: ["series", "episodes", "characters"], 2: ["series", "episodes", "characters", "notes"] },
+    steps: { 1: (data) => ({ ...data, notes: [] }) },
+  };
+
+  it("今の版のキーが無ければ、前の版のキーから読んで移す", () => {
+    const storage = new MemoryStorage();
+    const db = buildExample();
+    storage.setItem("hash-watching-anime:series:v1", JSON.stringify(db.series));
+    const result = readStorage(storage, schema);
+    expect(result).toMatchObject({ ok: true, migratedFrom: 1 });
+    expect(result.ok && result.db.series.map((item) => item.id)).toEqual(db.series.map((item) => item.id));
+  });
+
+  it("今の版のキーがあれば、前の版のキーは見ない", () => {
+    const storage = new MemoryStorage();
+    storage.setItem("hash-watching-anime:series:v1", "{");
+    storage.setItem("hash-watching-anime:notes:v2", "[]");
+    expect(readStorage(storage, schema)).toMatchObject({ ok: true, migratedFrom: null });
+  });
+
+  it("移す手順で例外が出たら、読めないとして扱う", () => {
+    const storage = new MemoryStorage();
+    storage.setItem("hash-watching-anime:series:v1", "[]");
+    const throwing: Schema = {
+      ...schema,
+      steps: {
+        1: () => {
+          throw new Error("移せない");
+        },
+      },
+    };
+    expect(readStorage(storage, throwing)).toMatchObject({ ok: false });
   });
 });
 
@@ -96,6 +182,41 @@ describe("exportJson と parseExport", () => {
 
   it("版の無い JSON は読まない", () => {
     expect(() => parseExport(JSON.stringify({ series: [] }))).toThrow();
+  });
+
+  it("このアプリより新しい版の JSON は読まない", () => {
+    expect(() =>
+      parseExport(JSON.stringify({ ...v1Export, version: 999 })),
+    ).toThrow(/新しい版/);
+  });
+
+  it("v1 で書き出した JSON を、今の版で読める", () => {
+    const db = parseExport(JSON.stringify(v1Export));
+    expect(db.series.map((item) => item.title)).toContain("中二病でも恋がしたい！");
+    expect(db.episodes).toHaveLength(5);
+    expect(db.characters).toHaveLength(3);
+    const first = db.episodes.find((item) => item.label === "第1話")!;
+    const rikka = db.characters.find((item) => item.title === "小鳥遊六花")!;
+    expect(db.series.some((item) => item.id === first.seriesId)).toBe(true);
+    expect(first.appearances.map((item) => item.characterId)).toContain(rikka.id);
+    expect(first.body.blocks.flatMap((block) => block.runs).some((run) => run.pageId === rikka.id)).toBe(
+      true,
+    );
+  });
+
+  it("そのまま持ち出した JSON も読める", () => {
+    const storage = new MemoryStorage();
+    const db = buildExample();
+    storage.setItem(storageKeys.series, JSON.stringify(db.series));
+    storage.setItem(storageKeys.episodes, JSON.stringify(db.episodes));
+    storage.setItem(storageKeys.characters, JSON.stringify(db.characters));
+    const back = parseExport(dumpRaw(storage));
+    expect(back.episodes.map((item) => item.id)).toEqual(db.episodes.map((item) => item.id));
+  });
+
+  it("そのまま持ち出した JSON が読めないものなら、読み込まない", () => {
+    const dump = { app: "hash-watching-anime", raw: { [storageKeys.series]: "{" }, exportedAt: "" };
+    expect(() => parseExport(JSON.stringify(dump))).toThrow();
   });
 });
 
