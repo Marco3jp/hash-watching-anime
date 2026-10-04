@@ -1,12 +1,16 @@
 import { useState, type FormEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { paths } from "./paths.ts";
+import { pagesOf } from "../model/views.ts";
+import { JumpSuggest } from "./components/JumpSuggest.tsx";
+import { paths, seriesName } from "./paths.ts";
+import { useDatabase } from "./store.ts";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `shrink-0 font-medium ${isActive ? "text-theme-dark" : "text-theme hover:text-theme-dark"}`;
 
 export function Layout() {
   const navigate = useNavigate();
+  const db = useDatabase();
   const [text, setText] = useState("");
 
   const onSearch = (event: FormEvent) => {
@@ -46,12 +50,18 @@ export function Layout() {
             className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto"
             role="search"
           >
-            <input
+            <JumpSuggest
               type="search"
               aria-label="検索"
               value={text}
-              onChange={(event) => setText(event.target.value)}
-              className="field flex-1 sm:w-60 sm:flex-none"
+              onChange={setText}
+              pages={pagesOf(db)}
+              hintOf={(page) => {
+                if (page.kind !== "episode") return undefined;
+                const series = db.series.find((item) => item.id === page.seriesId);
+                return series ? seriesName(series) : undefined;
+              }}
+              className="flex-1 sm:w-60 sm:flex-none"
             />
             <button type="submit" className="btn">
               探す

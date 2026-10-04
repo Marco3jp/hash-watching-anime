@@ -204,3 +204,25 @@ function must<T>(value: T | undefined, label: string): T {
   }
   return value;
 }
+
+/**
+ * 放送日の候補。前の話の1週後と2週後、次の話の1週前と2週前。
+ * 一週休みのときのために2週も出す。前後の話に日付が無ければ出さない。古い順
+ */
+export function airedOnCandidates(
+  previous: Episode | null,
+  next: Episode | null,
+): string[] {
+  const found = new Set<string>();
+  for (const [episode, sign] of [[previous, 1], [next, -1]] as const) {
+    if (!episode?.airedOn) continue;
+    for (const weeks of [1, 2]) found.add(shiftDays(episode.airedOn, sign * weeks * 7));
+  }
+  return [...found].sort();
+}
+
+/** YYYY-MM-DD を日数だけずらす。時差に左右されないよう UTC で数える */
+function shiftDays(date: string, days: number): string {
+  const time = Date.parse(`${date}T00:00:00Z`) + days * 86_400_000;
+  return new Date(time).toISOString().slice(0, 10);
+}

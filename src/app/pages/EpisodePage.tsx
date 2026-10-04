@@ -10,10 +10,11 @@ import {
   updateEpisode,
 } from "../../model/records.ts";
 import type { Character, Database, Episode, Series } from "../../model/types.ts";
-import { buildEpisodeSidePanel, openSeries } from "../../model/views.ts";
+import { airedOnCandidates, buildEpisodeSidePanel, openSeries } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
 import { InlineText } from "../components/InlineText.tsx";
 import {
+  AddButton,
   DeleteButton,
   LinkedPages,
   Missing,
@@ -59,7 +60,12 @@ function EpisodeView({
         <>
           <div className="flex flex-wrap items-start gap-3">
             <div className="min-w-[min(100%,20rem)] flex-1">
-              <div className="mb-1 flex items-center gap-4">
+              <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+                {panel.collapsed ? null : (
+                  <PageLinkToSeries series={series} className="max-w-full truncate font-semibold">
+                    {seriesName(series)}
+                  </PageLinkToSeries>
+                )}
                 <div className="w-24 shrink-0">
                   <InlineText
                     label="話数"
@@ -78,6 +84,20 @@ function EpisodeView({
                     className="field field-sm font-mono text-muted"
                   />
                 </label>
+                {episode.airedOn === null && !panel.collapsed ? (
+                  <span className="flex flex-wrap gap-1">
+                    {airedOnCandidates(panel.previous, panel.next).map((date) => (
+                      <button
+                        key={date}
+                        type="button"
+                        onClick={() => update({ airedOn: date })}
+                        className="btn btn-sm font-mono font-normal text-muted"
+                      >
+                        {date.replaceAll("-", "/")}
+                      </button>
+                    ))}
+                  </span>
+                ) : null}
               </div>
               <TitleFields
                 page={episode}
@@ -126,12 +146,14 @@ function EpisodeView({
 function PageLinkToSeries({
   series,
   children,
+  className = "",
 }: {
   series: Series;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <Link to={paths.series(series.id)} className="link text-sm">
+    <Link to={paths.series(series.id)} className={`link text-sm ${className}`}>
       {children}
     </Link>
   );
@@ -147,8 +169,8 @@ function Neighbor({ caption, episode }: { caption: string; episode: Episode | nu
 }
 
 /**
- * 出演が1件でもあれば出演を、無ければシリーズの名簿を出す。
- * 名簿にいて出演に無い人は、下に足すボタンとして並べる。
+ * 出演を上に、名簿にいて出演に無い人を「名簿から」の候補として下に薄く並べる。
+ * 候補は + で、この話の出演に入れる。
  */
 function EpisodeCharacters({
   db,
@@ -160,7 +182,6 @@ function EpisodeCharacters({
   series: Series;
 }) {
   const store = useStore();
-  const panel = buildEpisodeSidePanel(db, episode.id);
   const characterById = new Map(db.characters.map((item) => [item.id, item]));
   const roleOf = (characterId: string) =>
     series.characters.find((item) => item.characterId === characterId)?.role ?? "";
@@ -181,7 +202,7 @@ function EpisodeCharacters({
 
   return (
     <div className="space-y-4">
-      {panel.characterSource === "appearance" ? (
+      {episode.appearances.length > 0 ? (
         <ul className="space-y-3">
           {episode.appearances.map((row) => {
             const character = characterById.get(row.characterId);
@@ -217,25 +238,26 @@ function EpisodeCharacters({
         </ul>
       ) : null}
 
+      {/* 名簿にいて出演に無い人は、まだ付いていない候補として薄く出す。出演の行と見分けられるように */}
       {rosterRest.length > 0 ? (
         <div>
-          {panel.characterSource === "appearance" ? (
-            <p className="label mb-2">名簿から出演に足す</p>
-          ) : null}
+          <p className="label mb-2">名簿から</p>
           <ul className="space-y-1">
             {rosterRest.map((row) => {
               const character = characterById.get(row.characterId) as Character;
               return (
                 <li key={row.id} className="flex items-center gap-2">
-                  <PageLink page={character} />
-                  <span className="min-w-0 flex-1 truncate text-xs text-muted">{row.role}</span>
-                  <button
-                    type="button"
+                  <AddButton
+                    label={`${character.title} をこの話に出す`}
                     onClick={() => appear(character.id)}
-                    className="btn btn-sm"
+                  />
+                  <Link
+                    to={paths.character(character.id)}
+                    className="text-sm text-muted hover:text-theme"
                   >
-                    出演に付ける
-                  </button>
+                    {character.title}
+                  </Link>
+                  <span className="min-w-0 flex-1 truncate text-xs text-muted/70">{row.role}</span>
                 </li>
               );
             })}
@@ -244,13 +266,13 @@ function EpisodeCharacters({
       ) : null}
 
       <PageSuggest
-        label="出演を付けるキャラクター"
-        placeholder="出演を付ける"
+        label="この話に出すキャラクター"
+        placeholder="キャラクターを足す"
         pages={db.characters.filter((item) => !appeared.has(item.id))}
         hintOf={(character) => roleOf(character.id) || character.aliases.join("、") || undefined}
         onPick={(character) => appear(character.id)}
         onCreate={createAndAppear}
-        createLabel={(text) => `「${text}」を作って名簿と出演に入れる`}
+        createLabel={(text) => `「${text}」を作って足す`}
       />
     </div>
   );

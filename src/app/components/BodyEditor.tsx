@@ -21,10 +21,10 @@ import {
   stampWritten,
 } from "../../model/body.ts";
 import { createCharacter, setBody } from "../../model/records.ts";
-import { hasExactTitle, suggestPages } from "../../model/search.ts";
+import { hasExactName, matchedName, suggestPages } from "../../model/search.ts";
 import type { Database, MemoBlock, Page, TextRun } from "../../model/types.ts";
 import { pagesOf } from "../../model/views.ts";
-import { pathOf, seriesName } from "../paths.ts";
+import { pageName, pathOf, seriesName } from "../paths.ts";
 import { useDatabase, useStore } from "../store.ts";
 import { SuggestList } from "./SuggestList.tsx";
 import { handleSuggestKey, type SuggestOption } from "./suggest.ts";
@@ -197,9 +197,14 @@ function BlockRow({
   const options: SuggestOption[] = [];
   if (open) {
     for (const page of suggestPages(pages, mention.query)) {
-      options.push({ type: "page", page, hint: hintOf(page) });
+      const name = matchedName(page, mention.query);
+      options.push(
+        name === page.title
+          ? { type: "page", page, hint: hintOf(page) }
+          : { type: "page", page, name, hint: pageName(page) },
+      );
     }
-    if (mention.query.trim() && !hasExactTitle(pages, mention.query)) {
+    if (mention.query.trim() && !hasExactName(pages, mention.query)) {
       options.push({ type: "create", text: mention.query.trim() });
     }
   }
@@ -215,8 +220,9 @@ function BlockRow({
     if (!mention) return;
     const target = option.type === "page" ? option.page : onCreate(option.text);
     const end = mention.start + 1 + mention.query.length;
+    // 別名で当たったときは、別名のまま差し込む。フルネームの題名を毎回書かずに済むように
     const result = insertLink(block.runs, mention.start, end, {
-      text: target.title,
+      text: option.type === "page" ? (option.name ?? target.title) : target.title,
       pageId: target.id,
     });
     setMention(null);

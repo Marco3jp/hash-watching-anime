@@ -42,7 +42,7 @@ export function SuggestList({
         >
           {option.type === "page" ? (
             <>
-              <span className="min-w-0 flex-1 truncate">{pageName(option.page)}</span>
+              <span className="min-w-0 flex-1 truncate">{option.name ?? pageName(option.page)}</span>
               {option.hint ? (
                 <span className="max-w-[40%] shrink-0 truncate text-xs text-muted">
                   {option.hint}

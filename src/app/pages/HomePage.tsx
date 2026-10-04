@@ -8,6 +8,7 @@ import {
 import type { SeriesUnit } from "../../model/types.ts";
 import { episodesIn } from "../../model/views.ts";
 import { paths, pathOf, seriesName, unitLabel } from "../paths.ts";
+import { JumpSuggest } from "../components/JumpSuggest.tsx";
 import { UnitToggle } from "../components/UnitToggle.tsx";
 import { useDatabase, useStore } from "../store.ts";
 
@@ -79,6 +80,7 @@ export function HomePage() {
 }
 
 function CreateSeries() {
+  const db = useDatabase();
   const store = useStore();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
@@ -105,12 +107,14 @@ function CreateSeries() {
 
   return (
     <form onSubmit={onSubmit} className="mt-4 flex flex-wrap items-center gap-2">
-      <input
+      <JumpSuggest
         aria-label="シリーズの題名"
         value={title}
-        onChange={(event) => setTitle(event.target.value)}
+        onChange={setTitle}
+        pages={db.series}
+        hintOf={(series) => series.aliases.join("、") || undefined}
         placeholder="題名"
-        className="field min-w-48 flex-1"
+        className="min-w-48 flex-1"
       />
       <UnitToggle value={unit} onChange={setUnit} />
       <button type="submit" disabled={!title.trim()} className="btn btn-primary">
@@ -121,6 +125,7 @@ function CreateSeries() {
 }
 
 function CreateCharacter() {
+  const db = useDatabase();
   const store = useStore();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
@@ -136,12 +141,14 @@ function CreateCharacter() {
 
   return (
     <form onSubmit={onSubmit} className="mt-4 flex items-center gap-2">
-      <input
+      <JumpSuggest
         aria-label="キャラクターの名前"
         value={title}
-        onChange={(event) => setTitle(event.target.value)}
+        onChange={setTitle}
+        pages={db.characters}
+        hintOf={(character) => character.aliases.join("、") || undefined}
         placeholder="名前"
-        className="field flex-1"
+        className="flex-1"
       />
       <button type="submit" disabled={!title.trim()} className="btn">
         作る
