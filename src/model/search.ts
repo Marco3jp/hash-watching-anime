@@ -44,9 +44,28 @@ export function suggestPages<T extends Page>(
   return [...prefix, ...partial].slice(0, limit);
 }
 
-export function hasExactTitle(pages: Page[], text: string): boolean {
+/** 題名か別名がちょうど同じページがあるか。あれば、新しく作る候補は出さない */
+export function hasExactName(pages: Page[], text: string): boolean {
   const query = normalize(text.trim());
-  return pages.some((page) => normalize(page.title) === query);
+  return pages.some((page) =>
+    [page.title, ...page.aliases].some((name) => normalize(name) === query),
+  );
+}
+
+/**
+ * サジェストで当たった名前。本文に差し込む文字に使う。
+ * 題名で当たれば題名、別名でだけ当たればその別名。前方一致を部分一致より先に見る。
+ * 話数の表記で当たったときと、空文字のときは題名
+ */
+export function matchedName(page: Page, text: string): string {
+  const query = normalize(text.trim());
+  if (!query) return page.title;
+  const names = [page.title, ...page.aliases];
+  return (
+    names.find((name) => normalize(name).startsWith(query)) ??
+    names.find((name) => normalize(name).includes(query)) ??
+    page.title
+  );
 }
 
 function namesOf(page: Page): string[] {

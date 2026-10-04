@@ -46,3 +46,15 @@ export function pageName(page: Page): string {
     ? `${page.label} ${page.title}`
     : page.title;
 }
+
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+/** YYYY-MM-DD の曜日。「水」 */
+export function weekdayOf(date: string): string {
+  return WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
+}
+
+/** YYYY-MM-DD を「2012/10/03(水)」に */
+export function dateLabel(date: string): string {
+  return `${date.replaceAll("-", "/")}(${weekdayOf(date)})`;
+}

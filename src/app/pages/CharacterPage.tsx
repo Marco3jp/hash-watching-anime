@@ -3,6 +3,7 @@ import { deleteCharacter, updateCharacter } from "../../model/records.ts";
 import type { Character, Database } from "../../model/types.ts";
 import { buildCharacterSidePanel } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
+import { CopyMenu } from "../components/CopyMenu.tsx";
 import {
   DeleteButton,
   LinkedPages,
@@ -42,6 +43,7 @@ function CharacterView({ db, character }: { db: Database; character: Character }
               onAliases={(aliases) => update({ aliases })}
             />
           </div>
+          <CopyMenu page={character} />
           <DeleteButton
             message={`「${character.title}」を消す`}
             onDelete={() => {

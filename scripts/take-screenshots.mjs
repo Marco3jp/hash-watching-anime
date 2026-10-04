@@ -137,6 +137,16 @@ async function main() {
     await page.screenshot({ path: suggestDest, fullPage: true });
     console.log(`  保存完了: ${suggestDest}`);
 
+    console.log("  撮影中: search-suggest");
+    await page.goto(`${baseUrl}/`);
+    await settle(page);
+    await page.getByRole("searchbox", { name: "検索" }).fill("六");
+    await page.getByRole("listbox").waitFor();
+    await settle(page);
+    const searchSuggestDest = join(screenshotsDir, "search-suggest.png");
+    await page.screenshot({ path: searchSuggestDest, fullPage: true });
+    console.log(`  保存完了: ${searchSuggestDest}`);
+
     console.log("  撮影中: home-light");
     await page.emulateMedia({ colorScheme: "light" });
     await page.goto(`${baseUrl}/`);

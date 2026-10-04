@@ -135,6 +135,19 @@ export function blockTime(block: MemoBlock): string {
   return block.at ?? "";
 }
 
+/**
+ * まだ何も書いていない行に文字が入ったときだけ、話の中の位置 at を入れる。
+ * 書いてある行、手で時刻を入れた行、時計が無いとき（at が null）は入れない。
+ */
+export function fillTime(before: MemoBlock, after: MemoBlock, at: string | null): MemoBlock {
+  const blank =
+    before.writtenAt === null && before.at === null && plainText(before.runs) === "";
+  if (!blank || at === null || after.at !== null || plainText(after.runs) === "") {
+    return after;
+  }
+  return { ...after, at };
+}
+
 /** まだ書いた時刻の無い行に、何か入っていれば stamp を入れる */
 export function stampWritten(blocks: MemoBlock[], stamp: string): MemoBlock[] {
   return blocks.map((block) =>

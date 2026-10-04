@@ -9,7 +9,7 @@ import {
   nextSortKey,
   updateCharacter,
 } from "./records.ts";
-import { searchPages, suggestPages } from "./search.ts";
+import { hasExactName, matchedName, searchPages, suggestPages } from "./search.ts";
 import { buildEpisodeSidePanel, episodesIn } from "./views.ts";
 
 const missingSeriesId = "無いシリーズ";
@@ -122,5 +122,23 @@ describe("suggestPages", () => {
       "小鳥遊六花・改 〜劇場版 中二病でも恋がしたい！〜",
       "映画 中二病でも恋がしたい！ -Take On Me-",
     ]);
+  });
+});
+
+describe("matchedName", () => {
+  it("別名でだけ当たれば、その別名を差し込む", () => {
+    const { db } = example();
+    const rikka = db.characters.find((item) => item.title === "小鳥遊六花");
+    if (!rikka) throw new Error("小鳥遊六花");
+    expect(matchedName(rikka, "六")).toBe("六花");
+    expect(matchedName(rikka, "小鳥遊")).toBe("小鳥遊六花");
+    expect(matchedName(rikka, "鳥遊")).toBe("小鳥遊六花");
+    expect(matchedName(rikka, "")).toBe("小鳥遊六花");
+  });
+
+  it("別名がちょうど同じなら、作る候補を出さない", () => {
+    const { db } = example();
+    expect(hasExactName(db.characters, "六花")).toBe(true);
+    expect(hasExactName(db.characters, "六")).toBe(false);
   });
 });

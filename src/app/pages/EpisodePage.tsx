@@ -10,10 +10,12 @@ import {
   updateEpisode,
 } from "../../model/records.ts";
 import type { Character, Database, Episode, Series } from "../../model/types.ts";
-import { buildEpisodeSidePanel, openSeries } from "../../model/views.ts";
+import { airedOnCandidates, buildEpisodeSidePanel, openSeries } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
+import { CopyMenu } from "../components/CopyMenu.tsx";
 import { InlineText } from "../components/InlineText.tsx";
 import {
+  AddButton,
   DeleteButton,
   LinkedPages,
   Missing,
@@ -23,8 +25,10 @@ import {
   SideBlock,
 } from "../components/PageFrame.tsx";
 import { PageSuggest } from "../components/PageSuggest.tsx";
+import { PlaybackBar } from "../components/PlaybackBar.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
-import { pageName, paths, seriesName } from "../paths.ts";
+import { dateLabel, pageName, paths, seriesName, weekdayOf } from "../paths.ts";
+import { currentTime } from "../playback.ts";
 import { useDatabase, useStore } from "../store.ts";
 
 export function EpisodePage() {
@@ -59,7 +63,12 @@ function EpisodeView({
         <>
           <div className="flex flex-wrap items-start gap-3">
             <div className="min-w-[min(100%,20rem)] flex-1">
-              <div className="mb-1 flex items-center gap-4">
+              <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+                {panel.collapsed ? null : (
+                  <PageLinkToSeries series={series} className="max-w-full truncate font-semibold">
+                    {seriesName(series)}
+                  </PageLinkToSeries>
+                )}
                 <div className="w-24 shrink-0">
                   <InlineText
                     label="話数"
@@ -79,12 +88,20 @@ function EpisodeView({
                   />
                 </label>
               </div>
+              {episode.airedOn === null && !panel.collapsed ? (
+                <AiredOnSuggest
+                  previous={panel.previous}
+                  next={panel.next}
+                  onPick={(airedOn) => update({ airedOn })}
+                />
+              ) : null}
               <TitleFields
                 page={episode}
                 onTitle={(title) => update({ title })}
                 onAliases={(aliases) => update({ aliases })}
               />
             </div>
+            <CopyMenu page={episode} />
             <DeleteButton
               message={`「${pageName(episode)}」を消す`}
               onDelete={() => {
@@ -98,7 +115,13 @@ function EpisodeView({
           </div>
         </>
       }
-      body={<BodyEditor page={episode} />}
+      body={
+        <>
+          <BodyEditor page={episode} clock={() => currentTime(episode)} />
+          {/* 画面下に固定するので、置く場所は見た目に関わらない */}
+          <PlaybackBar episode={episode} onDuration={(duration) => update({ duration })} />
+        </>
+      }
       side={
         <>
           <SideBlock title="シリーズ">
@@ -122,16 +145,68 @@ function EpisodeView({
   );
 }
 
+/**
+ * 放送日が空のとき、前後の話の放送日から1週と2週ずらした日を出す。
+ * 前回がいつか分かるよう、元の日付を1度だけ出し、ボタンはずらした週と月日だけにする
+ */
+function AiredOnSuggest({
+  previous,
+  next,
+  onPick,
+}: {
+  previous: Episode | null;
+  next: Episode | null;
+  onPick: (airedOn: string) => void;
+}) {
+  const groups = airedOnCandidates(previous, next);
+  if (groups.length === 0) return null;
+  return (
+    <div className="mb-1 space-y-1">
+      {groups.map((group) => (
+        <p key={group.from} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+          <span>{group.from === "previous" ? "前回" : "次回"}</span>
+          <DateText date={group.base} withYear />
+          <span aria-hidden>→</span>
+          {group.dates.map(({ weeks, date }) => (
+            <button
+              key={date}
+              type="button"
+              title={dateLabel(date)}
+              onClick={() => onPick(date)}
+              className="btn btn-sm font-normal text-muted"
+            >
+              {weeks > 0 ? `+${weeks}週` : `−${-weeks}週`}
+              <DateText date={date} />
+            </button>
+          ))}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/** 日付は等幅で、曜日は本文の字で出す。等幅の字には日本語が無いことがある */
+function DateText({ date, withYear = false }: { date: string; withYear?: boolean }) {
+  return (
+    <span>
+      <span className="font-mono">{(withYear ? date : date.slice(5)).replaceAll("-", "/")}</span>(
+      {weekdayOf(date)})
+    </span>
+  );
+}
+
 /** 話が1本の single でも、シリーズの面を直接開く */
 function PageLinkToSeries({
   series,
   children,
+  className = "",
 }: {
   series: Series;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <Link to={paths.series(series.id)} className="link text-sm">
+    <Link to={paths.series(series.id)} className={`link text-sm ${className}`}>
       {children}
     </Link>
   );
@@ -147,8 +222,8 @@ function Neighbor({ caption, episode }: { caption: string; episode: Episode | nu
 }
 
 /**
- * 出演が1件でもあれば出演を、無ければシリーズの名簿を出す。
- * 名簿にいて出演に無い人は、下に足すボタンとして並べる。
+ * 出演を上に、名簿にいて出演に無い人を「名簿から」の候補として下に薄く並べる。
+ * 候補は + で、この話の出演に入れる。
  */
 function EpisodeCharacters({
   db,
@@ -160,7 +235,6 @@ function EpisodeCharacters({
   series: Series;
 }) {
   const store = useStore();
-  const panel = buildEpisodeSidePanel(db, episode.id);
   const characterById = new Map(db.characters.map((item) => [item.id, item]));
   const roleOf = (characterId: string) =>
     series.characters.find((item) => item.characterId === characterId)?.role ?? "";
@@ -181,7 +255,7 @@ function EpisodeCharacters({
 
   return (
     <div className="space-y-4">
-      {panel.characterSource === "appearance" ? (
+      {episode.appearances.length > 0 ? (
         <ul className="space-y-3">
           {episode.appearances.map((row) => {
             const character = characterById.get(row.characterId);
@@ -217,25 +291,26 @@ function EpisodeCharacters({
         </ul>
       ) : null}
 
+      {/* 名簿にいて出演に無い人は、まだ付いていない候補として薄く出す。出演の行と見分けられるように */}
       {rosterRest.length > 0 ? (
         <div>
-          {panel.characterSource === "appearance" ? (
-            <p className="label mb-2">名簿から出演に足す</p>
-          ) : null}
+          <p className="label mb-2">名簿から</p>
           <ul className="space-y-1">
             {rosterRest.map((row) => {
               const character = characterById.get(row.characterId) as Character;
               return (
                 <li key={row.id} className="flex items-center gap-2">
-                  <PageLink page={character} />
-                  <span className="min-w-0 flex-1 truncate text-xs text-muted">{row.role}</span>
-                  <button
-                    type="button"
+                  <AddButton
+                    label={`${character.title} をこの話に出す`}
                     onClick={() => appear(character.id)}
-                    className="btn btn-sm"
+                  />
+                  <Link
+                    to={paths.character(character.id)}
+                    className="text-sm text-muted hover:text-theme"
                   >
-                    出演に付ける
-                  </button>
+                    {character.title}
+                  </Link>
+                  <span className="min-w-0 flex-1 truncate text-xs text-muted/70">{row.role}</span>
                 </li>
               );
             })}
@@ -244,13 +319,13 @@ function EpisodeCharacters({
       ) : null}
 
       <PageSuggest
-        label="出演を付けるキャラクター"
-        placeholder="出演を付ける"
+        label="この話に出すキャラクター"
+        placeholder="キャラクターを足す"
         pages={db.characters.filter((item) => !appeared.has(item.id))}
         hintOf={(character) => roleOf(character.id) || character.aliases.join("、") || undefined}
         onPick={(character) => appear(character.id)}
         onCreate={createAndAppear}
-        createLabel={(text) => `「${text}」を作って名簿と出演に入れる`}
+        createLabel={(text) => `「${text}」を作って足す`}
       />
     </div>
   );

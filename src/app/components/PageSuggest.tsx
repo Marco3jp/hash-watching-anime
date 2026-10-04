@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { hasExactTitle, suggestPages } from "../../model/search.ts";
+import { hasExactName, suggestPages } from "../../model/search.ts";
 import type { Page } from "../../model/types.ts";
 import { SuggestList } from "./SuggestList.tsx";
 import { handleSuggestKey, type SuggestOption } from "./suggest.ts";
@@ -35,7 +35,7 @@ export function PageSuggest<T extends Page>({
     page,
     hint: hintOf?.(page),
   }));
-  if (onCreate && text.trim() && !hasExactTitle(pages, text)) {
+  if (onCreate && text.trim() && !hasExactName(pages, text)) {
     options.push({ type: "create", text: text.trim() });
   }
 

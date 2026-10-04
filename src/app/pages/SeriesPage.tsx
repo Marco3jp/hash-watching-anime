@@ -13,6 +13,7 @@ import {
 import type { Database, Series } from "../../model/types.ts";
 import { buildSeriesSidePanel } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
+import { CopyMenu } from "../components/CopyMenu.tsx";
 import { InlineText } from "../components/InlineText.tsx";
 import {
   DeleteButton,
@@ -59,6 +60,7 @@ function SeriesView({ db, series }: { db: Database; series: Series }) {
             />
           </div>
           <UnitToggle value={series.unit} onChange={(unit) => update({ unit })} />
+          {collapsed ? null : <CopyMenu page={series} />}
           <DeleteButton
             message={`「${series.title}」を消す`}
             onDelete={() => {

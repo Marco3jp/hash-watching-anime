@@ -73,6 +73,7 @@ export function createEpisode(
     label: input.label.trim(),
     sortKey: input.sortKey ?? nextSortKey(db, input.seriesId),
     airedOn: input.airedOn,
+    duration: null,
     appearances: [],
     createdAt: stamp,
     updatedAt: stamp,
@@ -204,12 +205,14 @@ export function updateEpisode(
     aliases?: string[];
     label?: string;
     airedOn?: string | null;
+    duration?: number | null;
   },
 ): void {
   const episode = mustFind(db.episodes, episodeId);
   applyPageFields(episode, patch);
   if (patch.label !== undefined) episode.label = patch.label.trim();
   if (patch.airedOn !== undefined) episode.airedOn = patch.airedOn;
+  if (patch.duration !== undefined) episode.duration = patch.duration;
   touch(episode);
 }
 

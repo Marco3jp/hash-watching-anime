@@ -10,6 +10,7 @@ import {
   applyTextEdit,
   blockTime,
   blockWithTime,
+  fillTime,
   insertLink,
   linkAt,
   localTimestamp,
@@ -21,10 +22,10 @@ import {
   stampWritten,
 } from "../../model/body.ts";
 import { createCharacter, setBody } from "../../model/records.ts";
-import { hasExactTitle, suggestPages } from "../../model/search.ts";
+import { hasExactName, matchedName, suggestPages } from "../../model/search.ts";
 import type { Database, MemoBlock, Page, TextRun } from "../../model/types.ts";
 import { pagesOf } from "../../model/views.ts";
-import { pathOf, seriesName } from "../paths.ts";
+import { pageName, pathOf, seriesName } from "../paths.ts";
 import { useDatabase, useStore } from "../store.ts";
 import { SuggestList } from "./SuggestList.tsx";
 import { handleSuggestKey, type SuggestOption } from "./suggest.ts";
@@ -44,8 +45,16 @@ interface Mention {
  * Enter で次の行、Shift+Enter で行内の改行、行頭の Backspace で前の行へ寄せる。
  * 書いた時刻は、行に何か入ったときに入れる。
  * @ に続けて打つと、ページのサジェストが開く。選んだページの id を TextRun.pageId に入れる。
+ * clock を渡すと、まだ何も書いていない行に書き始めたとき、その位置を話の中の時刻に入れる。
  */
-export function BodyEditor({ page }: { page: Page }) {
+export function BodyEditor({
+  page,
+  clock,
+}: {
+  page: Page;
+  /** 話の中のいまの位置。「11:10」。数えていなければ null */
+  clock?: () => string | null;
+}) {
   const store = useStore();
   const db = useDatabase();
   const navigate = useNavigate();
@@ -100,7 +109,9 @@ export function BodyEditor({ page }: { page: Page }) {
             }}
             onRuns={(runs, caret) =>
               commit(
-                replaceBlock(blocks, block.id, (item) => ({ ...item, runs })),
+                replaceBlock(blocks, block.id, (item) =>
+                  fillTime(item, { ...item, runs }, clock?.() ?? null),
+                ),
                 caret === undefined ? undefined : { id: block.id, offset: caret },
               )
             }
@@ -197,9 +208,14 @@ function BlockRow({
   const options: SuggestOption[] = [];
   if (open) {
     for (const page of suggestPages(pages, mention.query)) {
-      options.push({ type: "page", page, hint: hintOf(page) });
+      const name = matchedName(page, mention.query);
+      options.push(
+        name === page.title
+          ? { type: "page", page, hint: hintOf(page) }
+          : { type: "page", page, name, hint: pageName(page) },
+      );
     }
-    if (mention.query.trim() && !hasExactTitle(pages, mention.query)) {
+    if (mention.query.trim() && !hasExactName(pages, mention.query)) {
       options.push({ type: "create", text: mention.query.trim() });
     }
   }
@@ -215,8 +231,9 @@ function BlockRow({
     if (!mention) return;
     const target = option.type === "page" ? option.page : onCreate(option.text);
     const end = mention.start + 1 + mention.query.length;
+    // 別名で当たったときは、別名のまま差し込む。フルネームの題名を毎回書かずに済むように
     const result = insertLink(block.runs, mention.start, end, {
-      text: target.title,
+      text: option.type === "page" ? (option.name ?? target.title) : target.title,
       pageId: target.id,
     });
     setMention(null);
