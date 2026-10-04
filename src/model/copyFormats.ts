@@ -53,13 +53,12 @@ function escapeDiscord(value: string): string {
     .replace(/@/g, `@${ZERO_WIDTH}`);
 }
 
-/** Slack は < > & を実体参照にする。記号は幅の無い文字で挟んで、書式にさせない */
+/**
+ * Slack は記号を幅の無い文字で挟んで、書式にさせない。
+ * 入力欄へ貼る文字なので、API 向けの &amp; などの実体参照にはしない。貼るとそのまま見える
+ */
 function escapeSlack(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/[`*_~]/g, `${ZERO_WIDTH}$&${ZERO_WIDTH}`);
+  return value.replace(/[`*_~]/g, `${ZERO_WIDTH}$&${ZERO_WIDTH}`);
 }
 
 function joinText(lines: Line[]): string {

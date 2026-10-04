@@ -48,9 +48,9 @@ describe("formatForCopy", () => {
     expect(out).toBe("**#題**\n- `11:10` @\u200beveryone\n  \\# 見出し風");
   });
 
-  it("Slack は *太字* と・で、< > & を実体参照にする", () => {
-    const out = formatForCopy("slack", "#題", [block("11:10", "<!channel> a&b")]);
-    expect(out).toBe("*#題*\n• `11:10` &lt;!channel&gt; a&amp;b");
+  it("Slack は *太字* と・で、記号は書式にさせず、& などはそのまま貼る", () => {
+    const out = formatForCopy("slack", "#題", [block("11:10", "*強い* a&b")]);
+    expect(out).toBe("*#題*\n• `11:10` \u200b*\u200b強い\u200b*\u200b a&b");
   });
 
   it("本文が空なら見出しだけ", () => {
