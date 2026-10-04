@@ -155,6 +155,16 @@ async function main() {
     await page.screenshot({ path: lightDest, fullPage: true });
     console.log(`  保存完了: ${lightDest}`);
 
+    // 保存したデータを読めないときの画面。キャラクターのキーだけ壊して撮る
+    console.log("  撮影中: broken");
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.evaluate((key) => localStorage.setItem(key, "{"), storageKeys.characters);
+    await page.goto(`${baseUrl}/`);
+    await settle(page);
+    const brokenDest = join(screenshotsDir, "broken.png");
+    await page.screenshot({ path: brokenDest, fullPage: true });
+    console.log(`  保存完了: ${brokenDest}`);
+
     await browser.close();
     console.log("\nすべてのスクリーンショットを保存しました:", screenshotsDir);
   } finally {
