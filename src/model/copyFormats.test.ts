@@ -24,13 +24,13 @@ describe("formatForCopy", () => {
     }
   });
 
-  it("テキストは記号なしで、時刻を前に付け、空の行は省く", () => {
+  it("テキストも箇条書きで、時刻を [] で囲んで前に付け、空の行は省く", () => {
     const out = formatForCopy("text", "#題", [
       block("11:10", "かわいい"),
       block(null, "   "),
       block(null, "一時停止\n考察"),
     ]);
-    expect(out).toBe("#題\n11:10 かわいい\n一時停止\n  考察");
+    expect(out).toBe("#題\n- [11:10] かわいい\n- 一時停止\n  考察");
   });
 
   it("Markdown は見出しとリストで、行内改行をハードブレークにし、記号をエスケープする", () => {
@@ -38,19 +38,19 @@ describe("formatForCopy", () => {
       block("11:10", "*強い* _だ_"),
       block(null, "一行目\n二行目"),
     ]);
-    expect(out).toBe("### \\#題\n\n- `11:10` \\*強い\\* \\_だ\\_\n- 一行目\\\n  二行目");
+    expect(out).toBe("### \\#題\n\n- [11:10] \\*強い\\* \\_だ\\_\n- 一行目\\\n  二行目");
   });
 
   it("Discord は太字の見出しとリストで、改行はそのまま、@ を無効にする", () => {
     const out = formatForCopy("discord", "#題", [
       block("11:10", "@everyone\n# 見出し風"),
     ]);
-    expect(out).toBe("**#題**\n- `11:10` @\u200beveryone\n  \\# 見出し風");
+    expect(out).toBe("**#題**\n- [11:10] @\u200beveryone\n  \\# 見出し風");
   });
 
-  it("Slack は *太字* と・で、記号は書式にさせず、& などはそのまま貼る", () => {
+  it("Slack は *太字* と - で、記号は書式にさせず、& などはそのまま貼る", () => {
     const out = formatForCopy("slack", "#題", [block("11:10", "*強い* a&b")]);
-    expect(out).toBe("*#題*\n• `11:10` \u200b*\u200b強い\u200b*\u200b a&b");
+    expect(out).toBe("*#題*\n- [11:10] \u200b*\u200b強い\u200b*\u200b a&b");
   });
 
   it("本文が空なら見出しだけ", () => {

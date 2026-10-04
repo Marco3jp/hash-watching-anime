@@ -12,6 +12,7 @@ import {
 import type { Character, Database, Episode, Series } from "../../model/types.ts";
 import { airedOnCandidates, buildEpisodeSidePanel, openSeries } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
+import { CopyMenu } from "../components/CopyMenu.tsx";
 import { InlineText } from "../components/InlineText.tsx";
 import {
   AddButton,
@@ -107,6 +108,7 @@ function EpisodeView({
                 onAliases={(aliases) => update({ aliases })}
               />
             </div>
+            <CopyMenu page={episode} />
             <DeleteButton
               message={`「${pageName(episode)}」を消す`}
               onDelete={() => {

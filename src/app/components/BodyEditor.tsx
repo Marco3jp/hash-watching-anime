@@ -27,7 +27,6 @@ import type { Database, MemoBlock, Page, TextRun } from "../../model/types.ts";
 import { pagesOf } from "../../model/views.ts";
 import { pageName, pathOf, seriesName } from "../paths.ts";
 import { useDatabase, useStore } from "../store.ts";
-import { CopyMenu } from "./CopyMenu.tsx";
 import { SuggestList } from "./SuggestList.tsx";
 import { handleSuggestKey, type SuggestOption } from "./suggest.ts";
 
@@ -161,7 +160,6 @@ export function BodyEditor({
           <WrittenAt value={focusedAt} />
         </p>
       ) : null}
-      <CopyMenu page={page} />
     </div>
   );
 }

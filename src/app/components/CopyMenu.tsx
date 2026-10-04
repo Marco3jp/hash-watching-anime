@@ -5,7 +5,7 @@ import { pageName, seriesName } from "../paths.ts";
 import { useDatabase } from "../store.ts";
 
 /**
- * 本文を各形式でクリップボードへ写す。ボタンで4形式のメニューを開き、選ぶとコピーする。
+ * 本文を各形式でクリップボードへ写す。ヘッダーの削除の隣に置く。ボタンで4形式のメニューを開き、選ぶとコピーする。
  * 外側のクリックと Escape で閉じる。本文が空なら出さない。
  */
 export function CopyMenu({ page }: { page: Page }) {
@@ -59,25 +59,25 @@ export function CopyMenu({ page }: { page: Page }) {
   };
 
   return (
-    <div ref={root} className="relative mt-3 flex items-center gap-2">
+    <div ref={root} className="relative flex items-center gap-2">
+      {done ? (
+        <span role="status" className="text-xs text-muted">
+          {done === "error" ? "コピーできなかった" : "コピーした"}
+        </span>
+      ) : null}
       <button
         type="button"
-        className="btn btn-sm"
+        className="btn"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
         コピー
       </button>
-      {done ? (
-        <span role="status" className="text-xs text-muted">
-          {done === "error" ? "コピーできなかった" : "コピーした"}
-        </span>
-      ) : null}
       {open ? (
         <ul
           role="menu"
-          className="absolute top-full left-0 z-30 mt-1 w-40 overflow-hidden rounded-lg border border-line bg-surface py-1 text-sm text-fg shadow-lg shadow-black/30"
+          className="absolute top-full right-0 z-30 mt-1 w-40 overflow-hidden rounded-lg border border-line bg-surface py-1 text-sm text-fg shadow-lg shadow-black/30"
         >
           {copyFormats.map((format) => (
             <li key={format.id} role="none">

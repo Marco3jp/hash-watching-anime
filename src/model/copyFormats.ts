@@ -32,12 +32,9 @@ function linesOf(blocks: MemoBlock[]): Line[] {
   return lines;
 }
 
-/** 文字を含むインラインコード。文字の中のバッククォートより長い囲みを使う */
-function inlineCode(value: string): string {
-  const longest = Math.max(0, ...(value.match(/`+/g) ?? []).map((m) => m.length));
-  const fence = "`".repeat(longest + 1);
-  const pad = value.startsWith("`") || value.endsWith("`") ? " " : "";
-  return `${fence}${pad}${value}${pad}${fence}`;
+/** 話の中の時刻は、行頭の「- 」の後ろに [11:10] と囲んで付ける */
+function item(at: string | null, body: string): string {
+  return `- ${at ? `[${at}] ` : ""}${body}`;
 }
 
 const ZERO_WIDTH = "​";
@@ -62,42 +59,31 @@ function escapeSlack(value: string): string {
 }
 
 function joinText(lines: Line[]): string {
-  return lines
-    .map(({ at, parts }) => {
-      const body = parts.join("\n  ");
-      return at ? `${at} ${body}` : body;
-    })
-    .join("\n");
+  return lines.map(({ at, parts }) => item(at, parts.join("\n  "))).join("\n");
 }
 
 function joinMarkdown(title: string, lines: Line[]): string {
-  const items = lines.map(({ at, parts }) => {
-    // 行内の改行は、行末の \ のハードブレークと、リストの継続行のインデントで保つ
-    const body = parts.map(escapeMarkdown).join("\\\n  ");
-    return `- ${at ? `${inlineCode(at)} ` : ""}${body}`;
-  });
+  // 行内の改行は、行末の \ のハードブレークと、リストの継続行の字下げで保つ
+  const items = lines.map(({ at, parts }) => item(at, parts.map(escapeMarkdown).join("\\\n  ")));
   return [`### ${escapeMarkdown(title)}`, "", ...items].join("\n");
 }
 
 function joinDiscord(title: string, lines: Line[]): string {
-  const items = lines.map(({ at, parts }) => {
+  const items = lines.map(({ at, parts }) =>
     // 行頭の # は見出しになるので、本文の行だけ守る
-    const body = parts.map((part) => escapeDiscord(part).replace(/^#/, "\\#")).join("\n  ");
-    return `- ${at ? `${inlineCode(at)} ` : ""}${body}`;
-  });
+    item(at, parts.map((part) => escapeDiscord(part).replace(/^#/, "\\#")).join("\n  ")),
+  );
   return [`**${escapeDiscord(title)}**`, ...items].join("\n");
 }
 
 function joinSlack(title: string, lines: Line[]): string {
-  const items = lines.map(({ at, parts }) => {
-    const body = parts.map(escapeSlack).join("\n  ");
-    return `• ${at ? `${inlineCode(at)} ` : ""}${body}`;
-  });
+  const items = lines.map(({ at, parts }) => item(at, parts.map(escapeSlack).join("\n  ")));
   return [`*${escapeSlack(title)}*`, ...items].join("\n");
 }
 
 /**
- * 1行目に見出し（title）、続いて本文の各行。話の中の時刻がある行は前に付ける。
+ * 1行目に見出し（title）、続いて本文の各行を「- 」の箇条書きにする。どの形式も同じ。
+ * 話の中の時刻がある行は「- [11:10] 本文」と前に付ける。
  * title は呼び出し側が組む（話ならシリーズ名つき）。
  */
 export function formatForCopy(
