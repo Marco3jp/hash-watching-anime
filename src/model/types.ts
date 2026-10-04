@@ -1,7 +1,9 @@
 /**
  * 1st で保存するもの。
  * 実況は、見ながらのリアクション（「この表情かわいすぎる！」など）。
- * 実況に要るのは話と、その一覧を持つシリーズ。
+ * 実況に要るのは話と、その一覧を持つシーズン。
+ * シリーズは、シーズンを束ねる任意の器。オタクのいう「〇〇シリーズ」で、後から付く呼び名。
+ * 「ガンダムシリーズ」のように、派生も含めて大きく束ねる。
  * キャラクターはサイドパネル用。スタッフと楽曲はまだ入れない。
  *
  * 参照は id。相手の中身はコピーしない。
@@ -47,22 +49,38 @@ export interface PageFields {
   updatedAt: string;
 }
 
-/** serial は複数話。single は劇場版や単発で、画面では話1本に畳む */
-export type SeriesUnit = "serial" | "single";
-
+/**
+ * シーズンを束ねる器。並びの順が前後。
+ * 1つのシーズンが複数のシリーズに入ることは考えにくいが、データの上では止めない
+ */
 export interface Series extends PageFields {
   kind: "series";
-  unit: SeriesUnit;
-  /** このシリーズのキャラクター。話に出演が無いときのサイドパネル */
-  characters: SeriesCharacter[];
+  seasons: SeriesSeason[];
+}
+
+export interface SeriesSeason {
+  id: string;
+  seasonId: string;
+  /** 「総集編」「外伝」など。決まった語彙にはしない */
+  note: string;
+}
+
+/** serial は複数話。single は劇場版や単発で、画面では話1本に畳む */
+export type SeasonUnit = "serial" | "single";
+
+export interface Season extends PageFields {
+  kind: "season";
+  unit: SeasonUnit;
+  /** このシーズンのキャラクター。話に出演が無いときのサイドパネル */
+  characters: SeasonCharacter[];
 }
 
 export interface Episode extends PageFields {
   kind: "episode";
-  seriesId: string;
+  seasonId: string;
   /** 表示用の話数。「第1話」「本編」 */
   label: string;
-  /** 同じシリーズ内の並び。間に足せるよう 10, 20, 30 と空ける */
+  /** 同じシーズン内の並び。間に足せるよう 10, 20, 30 と空ける */
   sortKey: number;
   /** 放送日・公開日。視聴日ではない。不明なら null。YYYY-MM-DD */
   airedOn: string | null;
@@ -73,7 +91,7 @@ export interface Episode extends PageFields {
   duration: number | null;
   /**
    * この話のサイドパネルに出すキャラクター。
-   * 空ならシリーズの characters を出す。
+   * 空ならシーズンの characters を出す。
    */
   appearances: Appearance[];
 }
@@ -82,9 +100,9 @@ export interface Character extends PageFields {
   kind: "character";
 }
 
-export type Page = Series | Episode | Character;
+export type Page = Series | Season | Episode | Character;
 
-export interface SeriesCharacter {
+export interface SeasonCharacter {
   id: string;
   characterId: string;
   /** 「主人公」など。決まった語彙にはしない */
@@ -100,6 +118,7 @@ export interface Appearance {
 
 export interface Database {
   series: Series[];
+  seasons: Season[];
   episodes: Episode[];
   characters: Character[];
 }

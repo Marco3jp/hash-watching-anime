@@ -7,11 +7,12 @@
  * 移行は1段ずつ進める。v1 から v3 へは v1→v2→v3 と順に通す。
  */
 
-export const currentVersion = 1;
+export const currentVersion = 2;
 
 /** 版ごとの、保存する配列の名前。LocalStorage のキーは hash-watching-anime:<名前>:v<版> */
 export const collectionsByVersion: Record<number, readonly string[]> = {
   1: ["series", "episodes", "characters"],
+  2: ["series", "seasons", "episodes", "characters"],
 };
 
 /** ある版の配列の組。中身の形は版ごとに違うので、ここでは見ない */
@@ -20,7 +21,28 @@ export type VersionedData = Record<string, unknown[]>;
 export type MigrationStep = (data: VersionedData) => VersionedData;
 
 /** キーは移行元の版。steps[1] は v1 の data を v2 の data にする */
-export const steps: Record<number, MigrationStep> = {};
+export const steps: Record<number, MigrationStep> = {
+  /**
+   * v1 の series は、いまのシーズン。kind を season に、話の seriesId を seasonId に移す。
+   * id は変えないので、本文のリンクはそのまま。上に束ねるシリーズは空から始める
+   */
+  1: (data) => ({
+    series: [],
+    seasons: data.series.map((item) => ({ ...asObject(item), kind: "season" })),
+    episodes: data.episodes.map((item) => {
+      const { seriesId, ...rest } = asObject(item);
+      return { ...rest, seasonId: seriesId };
+    }),
+    characters: data.characters,
+  }),
+};
+
+function asObject(item: unknown): Record<string, unknown> {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    throw new Error("ページの形が崩れている");
+  }
+  return item as Record<string, unknown>;
+}
 
 export function storageKeyOf(collection: string, version: number): string {
   return `hash-watching-anime:${collection}:v${version}`;

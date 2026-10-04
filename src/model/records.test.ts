@@ -4,7 +4,7 @@ import {
   cleanAliases,
   createEpisode,
   deleteCharacter,
-  deleteSeries,
+  deleteSeason,
   moveEpisode,
   nextSortKey,
   updateCharacter,
@@ -12,23 +12,23 @@ import {
 import { hasExactName, matchedName, searchPages, suggestPages } from "./search.ts";
 import { buildEpisodeSidePanel, episodesIn } from "./views.ts";
 
-const missingSeriesId = "無いシリーズ";
+const missingSeasonId = "無いシーズン";
 const firstTitle = "邂逅の…邪王真眼";
 
 function example() {
   const db = buildExample();
-  const tv1 = db.series.find((item) => item.title === "中二病でも恋がしたい！")!;
+  const tv1 = db.seasons.find((item) => item.title === "中二病でも恋がしたい！")!;
   const rikka = db.characters.find((item) => item.title === "小鳥遊六花")!;
   const first = db.episodes.find((item) => item.title === firstTitle)!;
   return { db, tv1, rikka, first };
 }
 
 describe("createEpisode", () => {
-  it("sortKey を省くと、シリーズの最後に 10 空けて足す", () => {
+  it("sortKey を省くと、シーズンの最後に 10 空けて足す", () => {
     const { db, tv1 } = example();
     expect(nextSortKey(db, tv1.id)).toBe(130);
     const episode = createEpisode(db, {
-      seriesId: tv1.id,
+      seasonId: tv1.id,
       title: "",
       label: "番外",
       airedOn: null,
@@ -36,10 +36,10 @@ describe("createEpisode", () => {
     expect(episodesIn(db, tv1.id).at(-1)?.id).toBe(episode.id);
   });
 
-  it("無いシリーズには足せない", () => {
+  it("無いシーズンには足せない", () => {
     const { db } = example();
     expect(() =>
-      createEpisode(db, { seriesId: missingSeriesId, title: "", label: "", airedOn: null }),
+      createEpisode(db, { seasonId: missingSeasonId, title: "", label: "", airedOn: null }),
     ).toThrow();
   });
 });
@@ -72,11 +72,11 @@ describe("deleteCharacter", () => {
   });
 });
 
-describe("deleteSeries", () => {
-  it("そのシリーズの話も一緒に消す", () => {
+describe("deleteSeason", () => {
+  it("そのシーズンの話も一緒に消す", () => {
     const { db, tv1 } = example();
-    deleteSeries(db, tv1.id);
-    expect(db.episodes.some((item) => item.seriesId === tv1.id)).toBe(false);
+    deleteSeason(db, tv1.id);
+    expect(db.episodes.some((item) => item.seasonId === tv1.id)).toBe(false);
     expect(db.episodes).toHaveLength(2);
   });
 });
@@ -100,7 +100,7 @@ describe("searchPages", () => {
   it("題名、別名、本文で当てる", () => {
     const { db } = example();
     expect(searchPages(db, "take on").map((hit) => hit.page.kind)).toEqual([
-      "series",
+      "season",
       "episode",
     ]);
     expect(searchPages(db, "ロープ")).toEqual([
@@ -116,7 +116,7 @@ describe("suggestPages", () => {
     expect(suggestPages(db.characters, "六花").map((item) => item.title)).toEqual([
       "小鳥遊六花",
     ]);
-    expect(suggestPages(db.series, "中二病").map((item) => item.title)).toEqual([
+    expect(suggestPages(db.seasons, "中二病").map((item) => item.title)).toEqual([
       "中二病でも恋がしたい！",
       "中二病でも恋がしたい！戀",
       "小鳥遊六花・改 〜劇場版 中二病でも恋がしたい！〜",

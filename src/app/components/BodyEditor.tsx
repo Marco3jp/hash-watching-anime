@@ -25,7 +25,7 @@ import { createCharacter, setBody } from "../../model/records.ts";
 import { hasExactName, matchedName, suggestPages } from "../../model/search.ts";
 import type { Database, MemoBlock, Page, TextRun } from "../../model/types.ts";
 import { pagesOf } from "../../model/views.ts";
-import { pageName, pathOf, seriesName } from "../paths.ts";
+import { pageName, pathOf, hashName } from "../paths.ts";
 import { useDatabase, useStore } from "../store.ts";
 import { SuggestList } from "./SuggestList.tsx";
 import { handleSuggestKey, type SuggestOption } from "./suggest.ts";
@@ -142,9 +142,7 @@ export function BodyEditor({
               return true;
             }}
             onOpen={(pageId) => {
-              const target = db.series.find((item) => item.id === pageId) ??
-                db.episodes.find((item) => item.id === pageId) ??
-                db.characters.find((item) => item.id === pageId);
+              const target = pagesOf(db).find((item) => item.id === pageId);
               if (target) navigate(pathOf(db, target));
             }}
             onCreate={(title) =>
@@ -436,17 +434,17 @@ function findMention(
   return null;
 }
 
-/** キャラクターを先に、話、シリーズの順に候補へ出す。開いているページ自身は外す */
+/** キャラクターを先に、話、シーズン、シリーズの順に候補へ出す。開いているページ自身は外す */
 function orderForSuggest(db: Database, page: Page): Page[] {
-  return [...db.characters, ...db.episodes, ...db.series].filter(
+  return [...db.characters, ...db.episodes, ...db.seasons, ...db.series].filter(
     (item) => item.id !== page.id,
   );
 }
 
 function hintOf(db: Database, page: Page): string | undefined {
   if (page.kind === "episode") {
-    const series = db.series.find((item) => item.id === page.seriesId);
-    return series ? seriesName(series) : undefined;
+    const season = db.seasons.find((item) => item.id === page.seasonId);
+    return season ? hashName(season) : undefined;
   }
   if (page.aliases.length > 0) return page.aliases.join("、");
   return undefined;

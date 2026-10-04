@@ -9,18 +9,24 @@ import {
   type MigrationStep,
   type VersionedData,
 } from "./migrate.ts";
-import type { Character, Database, Episode, Page, Series } from "./types.ts";
+import type { Character, Database, Episode, Page, Season, Series } from "./types.ts";
 
 /**
  * 保存先は LocalStorage。Sparkling Journey と同じく、種類ごとに1キーへ配列を置く。
  * 公開先が同じ marco3jp.github.io なので、キーにはプロジェクト名を付けて分ける。
  * キーの末尾は版。版を上げたら新しいキーへ書き、前の版のキーは消さずに残す。
  */
-export const storageKeys = {
-  series: storageKeyOf("series", currentVersion),
-  episodes: storageKeyOf("episodes", currentVersion),
-  characters: storageKeyOf("characters", currentVersion),
-} as const;
+const collections = ["series", "seasons", "episodes", "characters"] as const;
+
+type Collection = (typeof collections)[number];
+
+export const storageKeys = Object.fromEntries(
+  collections.map((name) => [name, storageKeyOf(name, currentVersion)]),
+) as Record<Collection, string>;
+
+function emptyDb(): Database {
+  return { series: [], seasons: [], episodes: [], characters: [] };
+}
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -101,7 +107,7 @@ export function readStorage(
       };
     }
   }
-  return { ok: true, db: { series: [], episodes: [], characters: [] }, migratedFrom: null };
+  return { ok: true, db: emptyDb(), migratedFrom: null };
 }
 
 /** 前の版も含めて、保存してある文字列をそのまま集める。読めないデータも、そのまま持ち出せる */
@@ -136,7 +142,7 @@ export class PageStore {
       // 前の版から移したら、今の版のキーへ書いておく。前の版のキーは残す
       if (result.migratedFrom !== null) this.write(result.db);
     } else {
-      this.snapshot = { series: [], episodes: [], characters: [] };
+      this.snapshot = emptyDb();
       this.status = { kind: "broken", message: result.message, keys: result.keys };
     }
   }
@@ -170,7 +176,7 @@ export class PageStore {
       this.snapshot = result.db;
       this.status = { kind: "ok", migratedFrom: result.migratedFrom };
     } else {
-      this.snapshot = { series: [], episodes: [], characters: [] };
+      this.snapshot = emptyDb();
       this.status = { kind: "broken", message: result.message, keys: result.keys };
     }
     this.emit();
@@ -194,9 +200,7 @@ export class PageStore {
   }
 
   private write(db: Database): void {
-    this.storage.setItem(storageKeys.series, JSON.stringify(db.series));
-    this.storage.setItem(storageKeys.episodes, JSON.stringify(db.episodes));
-    this.storage.setItem(storageKeys.characters, JSON.stringify(db.characters));
+    for (const name of collections) this.storage.setItem(storageKeys[name], JSON.stringify(db[name]));
   }
 
   private emit(): void {
@@ -214,6 +218,7 @@ export function exportJson(db: Database): string {
     version: currentVersion,
     exportedAt: new Date().toISOString(),
     series: db.series,
+    seasons: db.seasons,
     episodes: db.episodes,
     characters: db.characters,
   };
@@ -261,6 +266,7 @@ export function parseExport(json: string): Database {
 function toDatabase(data: VersionedData): Database {
   return normalizeDatabase({
     series: (data.series ?? []) as Series[],
+    seasons: (data.seasons ?? []) as Season[],
     episodes: (data.episodes ?? []) as Episode[],
     characters: (data.characters ?? []) as Character[],
   });
@@ -269,11 +275,12 @@ function toDatabase(data: VersionedData): Database {
 /**
  * 本文の行は、前の版だと type（text か timecode）で時刻の有無を分けていた。
  * 話の長さ duration は、前の版の話には無い。
- * キーと書き出しの版は上げず、読むときにいまの形へ直す。
+ * どちらも版は上げず、読むときにいまの形へ直す。
  */
 function normalizeDatabase(db: Database): Database {
   return {
     series: db.series.map(normalizeBody),
+    seasons: db.seasons.map(normalizeBody),
     episodes: db.episodes.map((episode) => normalizeEpisode(normalizeBody(episode))),
     characters: db.characters.map(normalizeBody),
   };
@@ -299,8 +306,8 @@ function normalizeEpisode(episode: Episode): Episode {
 }
 
 export interface ImportPreview {
-  create: { series: number; episodes: number; characters: number };
-  overwrite: { series: string[]; episodes: string[]; characters: string[] };
+  create: Record<Collection, number>;
+  overwrite: Record<Collection, string[]>;
 }
 
 export function previewImport(current: Database, incoming: Database): ImportPreview {
@@ -311,26 +318,20 @@ export function previewImport(current: Database, incoming: Database): ImportPrev
       overwrite: next.filter((item) => ids.has(item.id)).map((item) => item.title),
     };
   };
-  const series = split(current.series, incoming.series);
-  const episodes = split(current.episodes, incoming.episodes);
-  const characters = split(current.characters, incoming.characters);
-  return {
-    create: {
-      series: series.create,
-      episodes: episodes.create,
-      characters: characters.create,
-    },
-    overwrite: {
-      series: series.overwrite,
-      episodes: episodes.overwrite,
-      characters: characters.overwrite,
-    },
-  };
+  const create = {} as Record<Collection, number>;
+  const overwrite = {} as Record<Collection, string[]>;
+  for (const name of collections) {
+    const result = split<{ id: string; title: string }>(current[name], incoming[name]);
+    create[name] = result.create;
+    overwrite[name] = result.overwrite;
+  }
+  return { create, overwrite };
 }
 
 /** 同じ id は置き換え、無い id は足す。id は引き直さない */
 export function mergeImport(db: Database, incoming: Database): void {
   db.series = upsert(db.series, incoming.series);
+  db.seasons = upsert(db.seasons, incoming.seasons);
   db.episodes = upsert(db.episodes, incoming.episodes);
   db.characters = upsert(db.characters, incoming.characters);
 }

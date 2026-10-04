@@ -63,7 +63,8 @@ async function main() {
     const { storageKeys } = await server.ssrLoadModule("/src/model/storage.ts");
     const db = buildExample();
 
-    const tv1 = byTitle(db.series, "中二病でも恋がしたい！");
+    const franchise = byTitle(db.series, "中二病でも恋がしたい！シリーズ");
+    const tv1 = byTitle(db.seasons, "中二病でも恋がしたい！");
     const first = byTitle(db.episodes, "邂逅の…邪王真眼");
     const second = byTitle(db.episodes, "旋律の…聖調理人（プリーステス）");
     const film = byTitle(db.episodes, "映画 中二病でも恋がしたい！ -Take On Me-");
@@ -85,9 +86,9 @@ async function main() {
       ({ keys, data }) => {
         if (sessionStorage.getItem("seeded")) return;
         sessionStorage.setItem("seeded", "1");
-        localStorage.setItem(keys.series, JSON.stringify(data.series));
-        localStorage.setItem(keys.episodes, JSON.stringify(data.episodes));
-        localStorage.setItem(keys.characters, JSON.stringify(data.characters));
+        for (const [name, key] of Object.entries(keys)) {
+          localStorage.setItem(key, JSON.stringify(data[name]));
+        }
       },
       { keys: storageKeys, data: db },
     );
@@ -97,7 +98,8 @@ async function main() {
 
     const shots = [
       { name: "home", path: "/" },
-      { name: "series", path: `/series/${tv1.id}` },
+      { name: "series", path: `/series/${franchise.id}` },
+      { name: "season", path: `/seasons/${tv1.id}` },
       { name: "episode", path: `/episodes/${first.id}` },
       { name: "episode-roster", path: `/episodes/${second.id}` },
       { name: "film", path: `/episodes/${film.id}` },

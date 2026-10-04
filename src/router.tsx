@@ -6,6 +6,7 @@ import { CharacterPage } from "./app/pages/CharacterPage.tsx";
 import { EpisodePage } from "./app/pages/EpisodePage.tsx";
 import { HomePage } from "./app/pages/HomePage.tsx";
 import { SearchPage } from "./app/pages/SearchPage.tsx";
+import { SeasonPage } from "./app/pages/SeasonPage.tsx";
 import { SeriesPage } from "./app/pages/SeriesPage.tsx";
 import { SettingsPage } from "./app/pages/SettingsPage.tsx";
 
@@ -25,6 +26,7 @@ export const router = createBrowserRouter(
           children: [
             { index: true, element: <HomePage /> },
             { path: "series/:id", element: <SeriesPage /> },
+            { path: "seasons/:id", element: <SeasonPage /> },
             { path: "episodes/:id", element: <EpisodePage /> },
             { path: "characters/:id", element: <CharacterPage /> },
             { path: "search", element: <SearchPage /> },

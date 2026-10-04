@@ -1,20 +1,19 @@
-import { useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import {
-  addSeriesCharacter,
-  createCharacter,
-  createEpisode,
+  addSeriesSeason,
+  createSeason,
   deleteSeries,
-  moveEpisode,
-  removeSeriesCharacter,
+  moveSeriesSeason,
+  removeSeriesSeason,
   updateSeries,
-  updateSeriesCharacter,
+  updateSeriesSeason,
 } from "../../model/records.ts";
 import type { Database, Series } from "../../model/types.ts";
 import { buildSeriesSidePanel } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
 import { CopyMenu } from "../components/CopyMenu.tsx";
 import { InlineText } from "../components/InlineText.tsx";
+import { MoveButton } from "../components/MoveButton.tsx";
 import {
   DeleteButton,
   LinkedPages,
@@ -26,15 +25,20 @@ import {
 } from "../components/PageFrame.tsx";
 import { PageSuggest } from "../components/PageSuggest.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
-import { paths } from "../paths.ts";
-import { UnitToggle } from "../components/UnitToggle.tsx";
+import { paths, unitLabel } from "../paths.ts";
 import { useDatabase, useStore } from "../store.ts";
 
 export function SeriesPage() {
   const { id } = useParams<"id">();
   const db = useDatabase();
   const series = db.series.find((item) => item.id === id);
-  if (!series) return <Missing what="このシリーズ" />;
+  if (!series) {
+    // v1 の /series/:id はいまのシーズン。id は移行で変えていないので、シーズンの面へ送る
+    if (id && db.seasons.some((item) => item.id === id)) {
+      return <Navigate to={paths.season(id)} replace />;
+    }
+    return <Missing what="このシリーズ" />;
+  }
   return <SeriesView key={series.id} db={db} series={series} />;
 }
 
@@ -42,7 +46,6 @@ function SeriesView({ db, series }: { db: Database; series: Series }) {
   const store = useStore();
   const navigate = useNavigate();
   const panel = buildSeriesSidePanel(db, series.id);
-  const collapsed = panel.open.kind === "episode";
   const update = (patch: Parameters<typeof updateSeries>[2]) =>
     store.update((draft) => updateSeries(draft, series.id, patch));
 
@@ -59,8 +62,7 @@ function SeriesView({ db, series }: { db: Database; series: Series }) {
               onAliases={(aliases) => update({ aliases })}
             />
           </div>
-          <UnitToggle value={series.unit} onChange={(unit) => update({ unit })} />
-          {collapsed ? null : <CopyMenu page={series} />}
+          <CopyMenu page={series} />
           <DeleteButton
             message={`「${series.title}」を消す`}
             onDelete={() => {
@@ -70,197 +72,108 @@ function SeriesView({ db, series }: { db: Database; series: Series }) {
           />
         </div>
       }
-      body={collapsed ? null : <BodyEditor page={series} />}
+      body={<BodyEditor page={series} />}
       side={
         <>
-          <SideBlock title="話">
-            <EpisodeList db={db} series={series} />
+          <SideBlock title="シーズン">
+            <SeasonList db={db} series={series} panel={panel} />
           </SideBlock>
-          <SideBlock title="キャラクター名簿">
-            <Roster db={db} series={series} />
+          <SideBlock title="本文のリンク">
+            <LinkedPages pages={panel.links} />
           </SideBlock>
-          {collapsed ? null : (
-            <SideBlock title="本文のリンク">
-              <LinkedPages pages={panel.links} />
-            </SideBlock>
-          )}
         </>
       }
     />
   );
 }
 
-function EpisodeList({ db, series }: { db: Database; series: Series }) {
-  const store = useStore();
-  const navigate = useNavigate();
-  const { episodes } = buildSeriesSidePanel(db, series.id);
-  const [label, setLabel] = useState("");
-  const [title, setTitle] = useState("");
-  const defaultLabel = series.unit === "single" && episodes.length === 0
-    ? "本編"
-    : `第${episodes.length + 1}話`;
-
-  const onSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    const episode = store.update((draft) =>
-      createEpisode(draft, {
-        seriesId: series.id,
-        title: title.trim() || (series.unit === "single" ? series.title : ""),
-        label: label.trim() || defaultLabel,
-        airedOn: null,
-      }),
-    );
-    setLabel("");
-    setTitle("");
-    navigate(paths.episode(episode.id));
-  };
-
-  return (
-    <div className="space-y-3">
-      {episodes.length === 0 ? null : (
-        <ol className="space-y-0.5">
-          {episodes.map((episode, index) => (
-            <li key={episode.id} className="group flex items-center gap-1">
-              <span className="min-w-0 flex-1">
-                <PageLink page={episode} />
-              </span>
-              <span className="flex shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
-                <MoveButton
-                  label={`${episode.label} を前へ`}
-                  disabled={index === 0}
-                  onClick={() => store.update((draft) => moveEpisode(draft, episode.id, -1))}
-                >
-                  ↑
-                </MoveButton>
-                <MoveButton
-                  label={`${episode.label} を後ろへ`}
-                  disabled={index === episodes.length - 1}
-                  onClick={() => store.update((draft) => moveEpisode(draft, episode.id, 1))}
-                >
-                  ↓
-                </MoveButton>
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
-      <form onSubmit={onSubmit} className="flex items-center gap-2">
-        <input
-          aria-label="足す話の話数"
-          value={label}
-          onChange={(event) => setLabel(event.target.value)}
-          placeholder={defaultLabel}
-          className="field w-20 shrink-0 px-2"
-        />
-        <input
-          aria-label="足す話の題名"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="題名"
-          className="field flex-1 px-2"
-        />
-        <button type="submit" className="btn px-3">
-          足す
-        </button>
-      </form>
-    </div>
-  );
-}
-
-function MoveButton({
-  label,
-  disabled,
-  onClick,
-  children,
+/** 並びの順が前後。↑↓ で入れ替え、添え書きに「総集編」などを書く */
+function SeasonList({
+  db,
+  series,
+  panel,
 }: {
-  label: string;
-  disabled: boolean;
-  onClick: () => void;
-  children: string;
+  db: Database;
+  series: Series;
+  panel: ReturnType<typeof buildSeriesSidePanel>;
 }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="btn-icon text-xs"
-    >
-      {children}
-    </button>
-  );
-}
-
-function Roster({ db, series }: { db: Database; series: Series }) {
   const store = useStore();
-  const characterById = new Map(db.characters.map((item) => [item.id, item]));
-  const listed = new Set(series.characters.map((item) => item.characterId));
+  const listed = new Set(series.seasons.map((item) => item.seasonId));
 
   return (
     <div className="space-y-4">
-      {series.characters.length === 0 ? null : (
-        <ul className="space-y-3">
-          {series.characters.map((row) => {
-            const character = characterById.get(row.characterId);
-            if (!character) return null;
-            return (
-              <li key={row.id}>
-                <div className="flex items-center gap-2">
-                  <span className="shrink-0">
-                    <PageLink page={character} />
-                  </span>
-                  <InlineText
-                    label={`${character.title} の役柄`}
-                    value={row.role}
-                    placeholder="役柄"
-                    onCommit={(role) =>
-                      store.update((draft) =>
-                        updateSeriesCharacter(draft, series.id, row.id, { role }),
-                      )
-                    }
-                    className="text-xs text-muted"
-                  />
-                  <RemoveButton
-                    label={`${character.title} を名簿から外す`}
+      {panel.seasons.length === 0 ? null : (
+        <ol className="space-y-3">
+          {panel.seasons.map((row, index) => (
+            <li key={row.rowId} className="group">
+              <div className="flex items-center gap-1">
+                <span className="min-w-0 flex-1">
+                  <PageLink page={row.season} />
+                </span>
+                <span className="flex shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+                  <MoveButton
+                    label={`${row.season.title} を前へ`}
+                    disabled={index === 0}
                     onClick={() =>
-                      store.update((draft) => removeSeriesCharacter(draft, series.id, row.id))
+                      store.update((draft) => moveSeriesSeason(draft, series.id, row.rowId, -1))
                     }
-                  />
-                </div>
+                  >
+                    ↑
+                  </MoveButton>
+                  <MoveButton
+                    label={`${row.season.title} を後ろへ`}
+                    disabled={index === panel.seasons.length - 1}
+                    onClick={() =>
+                      store.update((draft) => moveSeriesSeason(draft, series.id, row.rowId, 1))
+                    }
+                  >
+                    ↓
+                  </MoveButton>
+                </span>
+                <RemoveButton
+                  label={`${row.season.title} をシリーズから外す`}
+                  onClick={() =>
+                    store.update((draft) => removeSeriesSeason(draft, series.id, row.rowId))
+                  }
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 text-xs text-muted">
+                  {row.season.unit === "single"
+                    ? unitLabel.single
+                    : `${row.episodes} 話`}
+                </span>
                 <InlineText
-                  label={`${character.title} のメモ`}
+                  label={`${row.season.title} の添え書き`}
                   value={row.note}
-                  placeholder="メモ"
+                  placeholder="総集編など"
                   onCommit={(note) =>
                     store.update((draft) =>
-                      updateSeriesCharacter(draft, series.id, row.id, { note }),
+                      updateSeriesSeason(draft, series.id, row.rowId, { note }),
                     )
                   }
                   className="text-xs text-muted"
                 />
-              </li>
-            );
-          })}
-        </ul>
+              </div>
+            </li>
+          ))}
+        </ol>
       )}
       <PageSuggest
-        label="名簿に入れるキャラクター"
-        placeholder="名簿に入れる"
-        pages={db.characters.filter((item) => !listed.has(item.id))}
-        hintOf={(character) => character.aliases.join("、") || undefined}
-        onPick={(character) =>
-          store.update((draft) =>
-            addSeriesCharacter(draft, series.id, { characterId: character.id, role: "" }),
-          )
+        label="シリーズに入れるシーズン"
+        placeholder="シーズンを入れる"
+        pages={db.seasons.filter((item) => !listed.has(item.id))}
+        hintOf={(season) => season.aliases.join("、") || undefined}
+        onPick={(season) =>
+          store.update((draft) => addSeriesSeason(draft, series.id, { seasonId: season.id }))
         }
         onCreate={(title) =>
           store.update((draft) => {
-            const character = createCharacter(draft, { title });
-            addSeriesCharacter(draft, series.id, { characterId: character.id, role: "" });
+            const season = createSeason(draft, { title, unit: "serial" });
+            addSeriesSeason(draft, series.id, { seasonId: season.id });
           })
         }
-        createLabel={(text) => `「${text}」を作って名簿に入れる`}
+        createLabel={(text) => `「${text}」を作って入れる`}
       />
     </div>
   );

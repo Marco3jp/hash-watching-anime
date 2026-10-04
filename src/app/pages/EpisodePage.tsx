@@ -2,15 +2,15 @@ import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   addAppearance,
-  addSeriesCharacter,
+  addSeasonCharacter,
   createCharacter,
   deleteEpisode,
   removeAppearance,
   updateAppearance,
   updateEpisode,
 } from "../../model/records.ts";
-import type { Character, Database, Episode, Series } from "../../model/types.ts";
-import { airedOnCandidates, buildEpisodeSidePanel, openSeries } from "../../model/views.ts";
+import type { Character, Database, Episode, Season } from "../../model/types.ts";
+import { airedOnCandidates, buildEpisodeSidePanel, openSeason } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
 import { CopyMenu } from "../components/CopyMenu.tsx";
 import { InlineText } from "../components/InlineText.tsx";
@@ -26,8 +26,9 @@ import {
 } from "../components/PageFrame.tsx";
 import { PageSuggest } from "../components/PageSuggest.tsx";
 import { PlaybackBar } from "../components/PlaybackBar.tsx";
+import { SeasonPlaces } from "../components/SeasonPlaces.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
-import { dateLabel, pageName, paths, seriesName, weekdayOf } from "../paths.ts";
+import { dateLabel, pageName, paths, hashName, weekdayOf } from "../paths.ts";
 import { currentTime } from "../playback.ts";
 import { useDatabase, useStore } from "../store.ts";
 
@@ -36,19 +37,19 @@ export function EpisodePage() {
   const db = useDatabase();
   const episode = db.episodes.find((item) => item.id === id);
   if (!episode) return <Missing what="この話" />;
-  const series = db.series.find((item) => item.id === episode.seriesId);
-  if (!series) return <Missing what="この話のシリーズ" />;
-  return <EpisodeView key={episode.id} db={db} episode={episode} series={series} />;
+  const season = db.seasons.find((item) => item.id === episode.seasonId);
+  if (!season) return <Missing what="この話のシーズン" />;
+  return <EpisodeView key={episode.id} db={db} episode={episode} season={season} />;
 }
 
 function EpisodeView({
   db,
   episode,
-  series,
+  season,
 }: {
   db: Database;
   episode: Episode;
-  series: Series;
+  season: Season;
 }) {
   const store = useStore();
   const navigate = useNavigate();
@@ -64,10 +65,21 @@ function EpisodeView({
           <div className="flex flex-wrap items-start gap-3">
             <div className="min-w-[min(100%,20rem)] flex-1">
               <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-                {panel.collapsed ? null : (
-                  <PageLinkToSeries series={series} className="max-w-full truncate font-semibold">
-                    {seriesName(series)}
-                  </PageLinkToSeries>
+                {/* 劇場版・単発はシーズン名が題名と同じなので、入っていればシリーズ名を出す */}
+                {panel.collapsed ? (
+                  panel.places.map((place) => (
+                    <Link
+                      key={place.series.id}
+                      to={paths.series(place.series.id)}
+                      className="link max-w-full truncate text-sm font-semibold"
+                    >
+                      {hashName(place.series)}
+                    </Link>
+                  ))
+                ) : (
+                  <PageLinkToSeason season={season} className="max-w-full truncate font-semibold">
+                    {hashName(season)}
+                  </PageLinkToSeason>
                 )}
                 <div className="w-24 shrink-0">
                   <InlineText
@@ -106,9 +118,9 @@ function EpisodeView({
               message={`「${pageName(episode)}」を消す`}
               onDelete={() => {
                 store.update((draft) => deleteEpisode(draft, episode.id));
-                const target = openSeries(store.getSnapshot(), series.id);
+                const target = openSeason(store.getSnapshot(), season.id);
                 navigate(
-                  target.kind === "episode" ? paths.episode(target.id) : paths.series(series.id),
+                  target.kind === "episode" ? paths.episode(target.id) : paths.season(season.id),
                 );
               }}
             />
@@ -124,8 +136,8 @@ function EpisodeView({
       }
       side={
         <>
-          <SideBlock title="シリーズ">
-            <PageLinkToSeries series={series}>{seriesName(series)}</PageLinkToSeries>
+          <SideBlock title="シーズン">
+            <PageLinkToSeason season={season}>{hashName(season)}</PageLinkToSeason>
           </SideBlock>
           {panel.collapsed ? null : (
             <SideBlock title="前後の話">
@@ -133,8 +145,13 @@ function EpisodeView({
               <Neighbor caption="次" episode={panel.next} />
             </SideBlock>
           )}
+          {panel.places.length > 0 ? (
+            <SideBlock title="シリーズ">
+              <SeasonPlaces places={panel.places} />
+            </SideBlock>
+          ) : null}
           <SideBlock title="キャラクター">
-            <EpisodeCharacters db={db} episode={episode} series={series} />
+            <EpisodeCharacters db={db} episode={episode} season={season} />
           </SideBlock>
           <SideBlock title="本文のリンク">
             <LinkedPages pages={panel.links} />
@@ -195,18 +212,18 @@ function DateText({ date, withYear = false }: { date: string; withYear?: boolean
   );
 }
 
-/** 話が1本の single でも、シリーズの面を直接開く */
-function PageLinkToSeries({
-  series,
+/** 話が1本の single でも、シーズンの面を直接開く */
+function PageLinkToSeason({
+  season,
   children,
   className = "",
 }: {
-  series: Series;
+  season: Season;
   children: ReactNode;
   className?: string;
 }) {
   return (
-    <Link to={paths.series(series.id)} className={`link text-sm ${className}`}>
+    <Link to={paths.season(season.id)} className={`link text-sm ${className}`}>
       {children}
     </Link>
   );
@@ -228,18 +245,18 @@ function Neighbor({ caption, episode }: { caption: string; episode: Episode | nu
 function EpisodeCharacters({
   db,
   episode,
-  series,
+  season,
 }: {
   db: Database;
   episode: Episode;
-  series: Series;
+  season: Season;
 }) {
   const store = useStore();
   const characterById = new Map(db.characters.map((item) => [item.id, item]));
   const roleOf = (characterId: string) =>
-    series.characters.find((item) => item.characterId === characterId)?.role ?? "";
+    season.characters.find((item) => item.characterId === characterId)?.role ?? "";
   const appeared = new Set(episode.appearances.map((item) => item.characterId));
-  const rosterRest = series.characters.filter(
+  const rosterRest = season.characters.filter(
     (item) => !appeared.has(item.characterId) && characterById.has(item.characterId),
   );
 
@@ -249,7 +266,7 @@ function EpisodeCharacters({
   const createAndAppear = (title: string) =>
     store.update((draft) => {
       const character = createCharacter(draft, { title });
-      addSeriesCharacter(draft, series.id, { characterId: character.id, role: "" });
+      addSeasonCharacter(draft, season.id, { characterId: character.id, role: "" });
       addAppearance(draft, episode.id, { characterId: character.id });
     });
 
