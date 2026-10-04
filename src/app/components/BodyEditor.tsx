@@ -10,6 +10,7 @@ import {
   applyTextEdit,
   blockTime,
   blockWithTime,
+  fillTime,
   insertLink,
   linkAt,
   localTimestamp,
@@ -45,8 +46,16 @@ interface Mention {
  * Enter で次の行、Shift+Enter で行内の改行、行頭の Backspace で前の行へ寄せる。
  * 書いた時刻は、行に何か入ったときに入れる。
  * @ に続けて打つと、ページのサジェストが開く。選んだページの id を TextRun.pageId に入れる。
+ * clock を渡すと、まだ何も書いていない行に書き始めたとき、その位置を話の中の時刻に入れる。
  */
-export function BodyEditor({ page }: { page: Page }) {
+export function BodyEditor({
+  page,
+  clock,
+}: {
+  page: Page;
+  /** 話の中のいまの位置。「11:10」。数えていなければ null */
+  clock?: () => string | null;
+}) {
   const store = useStore();
   const db = useDatabase();
   const navigate = useNavigate();
@@ -101,7 +110,9 @@ export function BodyEditor({ page }: { page: Page }) {
             }}
             onRuns={(runs, caret) =>
               commit(
-                replaceBlock(blocks, block.id, (item) => ({ ...item, runs })),
+                replaceBlock(blocks, block.id, (item) =>
+                  fillTime(item, { ...item, runs }, clock?.() ?? null),
+                ),
                 caret === undefined ? undefined : { id: block.id, offset: caret },
               )
             }

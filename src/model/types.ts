@@ -67,6 +67,11 @@ export interface Episode extends PageFields {
   /** 放送日・公開日。視聴日ではない。不明なら null。YYYY-MM-DD */
   airedOn: string | null;
   /**
+   * 話の長さ。秒。画面下の時計が数える上限。null は既定の 24:00。
+   * 前の版の話には無いので、読むときに null で埋める
+   */
+  duration: number | null;
+  /**
    * この話のサイドパネルに出すキャラクター。
    * 空ならシリーズの characters を出す。
    */

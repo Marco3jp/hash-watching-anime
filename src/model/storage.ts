@@ -118,12 +118,13 @@ export function parseExport(json: string): Database {
 
 /**
  * 本文の行は、前の版だと type（text か timecode）で時刻の有無を分けていた。
+ * 話の長さ duration は、前の版の話には無い。
  * キーと書き出しの版は上げず、読むときにいまの形へ直す。
  */
 function normalizeDatabase(db: Database): Database {
   return {
     series: db.series.map(normalizeBody),
-    episodes: db.episodes.map(normalizeBody),
+    episodes: db.episodes.map((episode) => normalizeEpisode(normalizeBody(episode))),
     characters: db.characters.map(normalizeBody),
   };
 }
@@ -133,6 +134,17 @@ function normalizeBody<T extends Page>(page: T): T {
   return {
     ...page,
     body: { blocks: Array.isArray(blocks) ? blocks.map(normalizeBlock) : [] },
+  };
+}
+
+function normalizeEpisode(episode: Episode): Episode {
+  const duration: unknown = episode.duration;
+  return {
+    ...episode,
+    duration:
+      typeof duration === "number" && Number.isFinite(duration) && duration > 0
+        ? duration
+        : null,
   };
 }
 

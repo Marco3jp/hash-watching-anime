@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyTextEdit,
   blockWithTime,
+  fillTime,
   insertLink,
   linkAt,
   localTimestamp,
@@ -133,6 +134,28 @@ describe("blockWithTime", () => {
   it("話の中の時刻が空なら null", () => {
     expect(blockWithTime(twoBlocks[0], " ").at).toBeNull();
     expect(blockWithTime(twoBlocks[1], "11:10").at).toBe("11:10");
+  });
+});
+
+describe("fillTime", () => {
+  const blank: MemoBlock = { id: "c", at: null, writtenAt: null, runs: [] };
+  const typed = (block: MemoBlock): MemoBlock => ({ ...block, runs: [{ text: "か" }] });
+
+  it("まだ何も書いていない行に文字が入ったら、いまの位置を入れる", () => {
+    expect(fillTime(blank, typed(blank), "11:10").at).toBe("11:10");
+  });
+
+  it("書いてある行、手で時刻を入れた行、時計が無いときは入れない", () => {
+    expect(fillTime(twoBlocks[1], typed(twoBlocks[1]), "11:10").at).toBeNull();
+    const written = { ...blank, writtenAt: "2026-10-01T21:12:30+09:00" };
+    expect(fillTime(written, typed(written), "11:10").at).toBeNull();
+    const timed = { ...blank, at: "02:10" };
+    expect(fillTime(timed, typed(timed), "11:10").at).toBe("02:10");
+    expect(fillTime(blank, typed(blank), null).at).toBeNull();
+  });
+
+  it("文字が入っていなければ入れない", () => {
+    expect(fillTime(blank, blank, "11:10").at).toBeNull();
   });
 });
 
