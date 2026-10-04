@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { pagesOf } from "../model/views.ts";
 import { JumpSuggest } from "./components/JumpSuggest.tsx";
 import { BrokenStorage } from "./components/Recovery.tsx";
-import { paths, seriesName } from "./paths.ts";
+import { paths, hashName } from "./paths.ts";
 import { useDatabase, useStoreStatus } from "./store.ts";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -60,8 +60,8 @@ export function Layout() {
               pages={pagesOf(db)}
               hintOf={(page) => {
                 if (page.kind !== "episode") return undefined;
-                const series = db.series.find((item) => item.id === page.seriesId);
-                return series ? seriesName(series) : undefined;
+                const season = db.seasons.find((item) => item.id === page.seasonId);
+                return season ? hashName(season) : undefined;
               }}
               className="flex-1 sm:w-60 sm:flex-none"
             />

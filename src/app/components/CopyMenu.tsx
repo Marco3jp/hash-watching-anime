@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { copyFormats, formatForCopy, type CopyFormat } from "../../model/copyFormats.ts";
 import type { Page } from "../../model/types.ts";
-import { pageName, seriesName } from "../paths.ts";
+import { pageName, hashName } from "../paths.ts";
 import { useDatabase } from "../store.ts";
 
 /**
@@ -44,8 +44,8 @@ export function CopyMenu({ page }: { page: Page }) {
   const title = () => {
     const name = pageName(page);
     if (page.kind !== "episode") return name;
-    const series = db.series.find((item) => item.id === page.seriesId);
-    return series ? `${seriesName(series)} ${name}` : name;
+    const season = db.seasons.find((item) => item.id === page.seasonId);
+    return season ? `${hashName(season)} ${name}` : name;
   };
 
   const copy = async (format: CopyFormat) => {

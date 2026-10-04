@@ -13,7 +13,7 @@ import {
   SideBlock,
 } from "../components/PageFrame.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
-import { paths, seriesName } from "../paths.ts";
+import { paths, hashName } from "../paths.ts";
 import { useDatabase, useStore } from "../store.ts";
 
 export function CharacterPage() {
@@ -56,12 +56,12 @@ function CharacterView({ db, character }: { db: Database; character: Character }
       body={<BodyEditor page={character} />}
       side={
         <>
-          <SideBlock title="名簿にいるシリーズ">
+          <SideBlock title="名簿にいるシーズン">
             {panel.roster.length === 0 ? null : (
               <ul className="space-y-2">
                 {panel.roster.map((item) => (
-                  <li key={item.series.id}>
-                    <PageLink page={item.series} />
+                  <li key={item.season.id}>
+                    <PageLink page={item.season} />
                     {item.role ? (
                       <span className="block text-xs text-muted">{item.role}</span>
                     ) : null}
@@ -77,7 +77,7 @@ function CharacterView({ db, character }: { db: Database; character: Character }
                   <li key={item.episode.id}>
                     <PageLink page={item.episode} />
                     <span className="block text-xs text-muted">
-                      {seriesName(item.series)}
+                      {hashName(item.season)}
                       {item.note ? `・${item.note}` : ""}
                     </span>
                   </li>

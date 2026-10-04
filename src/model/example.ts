@@ -1,9 +1,11 @@
 import type { Database, MemoBlock, TextRun } from "./types.ts";
 import {
   addAppearance,
-  addSeriesCharacter,
+  addSeasonCharacter,
+  addSeriesSeason,
   createCharacter,
   createEpisode,
+  createSeason,
   createSeries,
   emptyDatabase,
 } from "./records.ts";
@@ -13,7 +15,7 @@ import {
  * 話のあらすじと公開日は、公開されている情報に合わせている。
  * 第1話の出演は勇太と六花だけにしてあり、実際の画面に誰が映るかとは限らない。
  *
- * ページを作ってから、返ってきた id をシリーズや話へ入れる。
+ * ページを作ってから、返ってきた id をシーズンや話へ入れる。
  * アプリは空の LocalStorage から始まる。この見本はテストと、スクショのシードに使う。
  */
 
@@ -34,7 +36,7 @@ function line(
 export function buildExample(): Database {
   const db = emptyDatabase();
 
-  const tv1 = createSeries(db, {
+  const tv1 = createSeason(db, {
     title: "中二病でも恋がしたい！",
     aliases: ["1期"],
     unit: "serial",
@@ -44,32 +46,45 @@ export function buildExample(): Database {
       ]),
     ],
   });
-  createSeries(db, {
+  const ren = createSeason(db, {
     title: "中二病でも恋がしたい！戀",
     aliases: ["戀", "2期"],
     unit: "serial",
   });
-  const kai = createSeries(db, {
+  const kai = createSeason(db, {
     title: "小鳥遊六花・改 〜劇場版 中二病でも恋がしたい！〜",
     aliases: ["六花・改"],
     unit: "single",
   });
-  const tom = createSeries(db, {
+  const tom = createSeason(db, {
     title: "映画 中二病でも恋がしたい！ -Take On Me-",
     aliases: ["Take On Me"],
     unit: "single",
   });
 
+  // シリーズはシーズンを束ねる器。並びの順が前後で、総集編も公開の順に置く
+  const franchise = createSeries(db, {
+    title: "中二病でも恋がしたい！シリーズ",
+    aliases: ["中二病"],
+    blocks: [
+      text("b-franchise", [{ text: "戀から入った人にも、1期の文化祭までは見てほしい" }]),
+    ],
+  });
+  addSeriesSeason(db, franchise.id, { seasonId: tv1.id });
+  addSeriesSeason(db, franchise.id, { seasonId: kai.id, note: "総集編" });
+  addSeriesSeason(db, franchise.id, { seasonId: ren.id });
+  addSeriesSeason(db, franchise.id, { seasonId: tom.id });
+
   const yuuta = createCharacter(db, { title: "富樫勇太", aliases: ["勇太"] });
   const rikka = createCharacter(db, { title: "小鳥遊六花", aliases: ["六花"] });
   const shinka = createCharacter(db, { title: "丹生谷森夏", aliases: ["森夏"] });
 
-  addSeriesCharacter(db, tv1.id, { characterId: yuuta.id, role: "主人公" });
-  addSeriesCharacter(db, tv1.id, { characterId: rikka.id, role: "ヒロイン" });
-  addSeriesCharacter(db, tv1.id, { characterId: shinka.id, role: "クラスメイト" });
+  addSeasonCharacter(db, tv1.id, { characterId: yuuta.id, role: "主人公" });
+  addSeasonCharacter(db, tv1.id, { characterId: rikka.id, role: "ヒロイン" });
+  addSeasonCharacter(db, tv1.id, { characterId: shinka.id, role: "クラスメイト" });
 
   const episode1 = createEpisode(db, {
-    seriesId: tv1.id,
+    seasonId: tv1.id,
     title: "邂逅の…邪王真眼",
     label: "第1話",
     sortKey: 10,
@@ -95,40 +110,40 @@ export function buildExample(): Database {
     ],
   });
   createEpisode(db, {
-    seriesId: tv1.id,
+    seasonId: tv1.id,
     title: "旋律の…聖調理人（プリーステス）",
     label: "第2話",
     sortKey: 20,
     airedOn: null,
   });
   createEpisode(db, {
-    seriesId: tv1.id,
+    seasonId: tv1.id,
     title: "終天の契約（エターナル・エンゲージ）",
     label: "最終話",
     sortKey: 120,
     airedOn: null,
   });
   createEpisode(db, {
-    seriesId: kai.id,
+    seasonId: kai.id,
     title: "小鳥遊六花・改 〜劇場版 中二病でも恋がしたい！〜",
     label: "本編",
     sortKey: 10,
     airedOn: "2013-09-14",
     blocks: [
       text("b-kai", [
-        { text: "総集編。1期の話とは別ページ。シリーズ同士の前後は、1st には入れていない。" },
+        { text: "総集編。1期の話とは別ページ。前後はシリーズの並びで行き来する。" },
       ]),
     ],
   });
   createEpisode(db, {
-    seriesId: tom.id,
+    seasonId: tom.id,
     title: "映画 中二病でも恋がしたい！ -Take On Me-",
     label: "本編",
     sortKey: 10,
     airedOn: "2018-01-06",
     blocks: [
       text("b-tom", [
-        { text: "劇場版はシリーズと話を分けず、この1ページに書く。" },
+        { text: "劇場版はシーズンと話を分けず、この1ページに書く。" },
       ]),
     ],
   });

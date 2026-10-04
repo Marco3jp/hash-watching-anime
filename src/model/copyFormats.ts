@@ -84,7 +84,7 @@ function joinSlack(title: string, lines: Line[]): string {
 /**
  * 1行目に見出し（title）、続いて本文の各行を「- 」の箇条書きにする。どの形式も同じ。
  * 話の中の時刻がある行は「- [11:10] 本文」と前に付ける。
- * title は呼び出し側が組む（話ならシリーズ名つき）。
+ * title は呼び出し側が組む（話ならシーズン名つき）。
  */
 export function formatForCopy(
   format: CopyFormat,

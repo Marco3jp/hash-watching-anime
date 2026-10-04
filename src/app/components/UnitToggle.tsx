@@ -1,4 +1,4 @@
-import type { SeriesUnit } from "../../model/types.ts";
+import type { SeasonUnit } from "../../model/types.ts";
 import { unitLabel } from "../paths.ts";
 
 /**
@@ -10,8 +10,8 @@ export function UnitToggle({
   onChange,
   size = "md",
 }: {
-  value: SeriesUnit;
-  onChange: (unit: SeriesUnit) => void;
+  value: SeasonUnit;
+  onChange: (unit: SeasonUnit) => void;
   size?: "md" | "sm";
 }) {
   return (
@@ -22,7 +22,7 @@ export function UnitToggle({
         size === "sm" ? "h-7" : "h-9"
       }`}
     >
-      {(Object.keys(unitLabel) as SeriesUnit[]).map((unit) => (
+      {(Object.keys(unitLabel) as SeasonUnit[]).map((unit) => (
         <button
           key={unit}
           type="button"
