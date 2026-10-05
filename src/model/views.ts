@@ -239,6 +239,44 @@ export function episodesIn(db: Database, seasonId: string): Episode[] {
     .sort((a, b) => a.sortKey - b.sortKey);
 }
 
+/** シーズンの最後の更新。話があれば話の updatedAt の最新、無ければシーズン自身 */
+export function seasonUpdatedAt(db: Database, season: Season): string {
+  return latest(
+    db.episodes.filter((item) => item.seasonId === season.id).map((item) => item.updatedAt),
+    season.updatedAt,
+  );
+}
+
+/** シリーズの最後の更新。入っているシーズンの seasonUpdatedAt の最新、無ければシリーズ自身 */
+export function seriesUpdatedAt(db: Database, series: Series): string {
+  return latest(
+    series.seasons.flatMap((row) => {
+      const season = db.seasons.find((item) => item.id === row.seasonId);
+      return season ? [seasonUpdatedAt(db, season)] : [];
+    }),
+    series.updatedAt,
+  );
+}
+
+/** ホームの並び。最後に話を直したものが先。同じ時刻なら保存の順 */
+export function seasonsByRecent(db: Database): Season[] {
+  return byRecent(db.seasons, (season) => seasonUpdatedAt(db, season));
+}
+
+export function seriesByRecent(db: Database): Series[] {
+  return byRecent(db.series, (series) => seriesUpdatedAt(db, series));
+}
+
+function byRecent<T>(items: T[], updatedAt: (item: T) => string): T[] {
+  const keyed = items.map((item) => ({ item, time: Date.parse(updatedAt(item)) || 0 }));
+  return keyed.sort((a, b) => b.time - a.time).map(({ item }) => item);
+}
+
+function latest(stamps: string[], fallback: string): string {
+  if (stamps.length === 0) return fallback;
+  return stamps.reduce((a, b) => (Date.parse(b) > Date.parse(a) ? b : a));
+}
+
 function sideCharacter(
   season: Season,
   characterId: string,
