@@ -25,6 +25,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+        env:
+          # Google ドライブと同期の OAuth クライアント ID。リポジトリの Variables に置く。無ければ同期を出さない
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v4
         with:

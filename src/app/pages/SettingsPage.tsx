@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent } from "react";
+import { Link } from "react-router-dom";
 import {
   exportJson,
   mergeImport,
@@ -8,8 +9,10 @@ import {
   type ImportPreview,
 } from "../../model/storage.ts";
 import type { Database } from "../../model/types.ts";
+import type { ConflictView } from "../../sync/SyncController.ts";
 import { downloadJson } from "../download.ts";
-import { useDatabase, useStore } from "../store.ts";
+import { kindLabel, pageName, pathOf } from "../paths.ts";
+import { useDatabase, useStore, useSync, useSyncState } from "../store.ts";
 
 export function SettingsPage() {
   const db = useDatabase();
@@ -109,6 +112,8 @@ export function SettingsPage() {
         ) : null}
       </section>
 
+      <SyncSection />
+
       <section className="text-sm text-muted">
         <h2 className="label">保存キー</h2>
         <ul className="mt-3 space-y-1 font-mono text-xs">
@@ -142,5 +147,122 @@ function OverwriteList({ title, names }: { title: string; names: string[] }) {
         {names.length > 20 ? <li>ほか {names.length - 20}</li> : null}
       </ul>
     </details>
+  );
+}
+
+function SyncSection() {
+  const sync = useSync();
+  const state = useSyncState();
+  if (!sync) return null;
+
+  const off = state.status === "off";
+  return (
+    <section>
+      <h2 className="text-2xl font-semibold">Google ドライブと同期</h2>
+      <p className="mt-4 flex flex-wrap items-center gap-2">
+        {off ? (
+          <button key="connect" type="button" onClick={() => void sync.connect()} className="btn btn-primary">
+            同期する
+          </button>
+        ) : state.status === "signed-out" ? (
+          <button key="reconnect" type="button" onClick={() => void sync.connect()} className="btn btn-primary">
+            つなぎ直す
+          </button>
+        ) : (
+          <button
+            key="sync"
+            type="button"
+            onClick={() => void sync.syncNow()}
+            disabled={state.status === "syncing"}
+            className="btn"
+          >
+            {state.status === "syncing" ? "同期中" : "今すぐ同期"}
+          </button>
+        )}
+        {off ? null : (
+          <button type="button" onClick={() => sync.disconnect()} className="btn">
+            やめる
+          </button>
+        )}
+      </p>
+      {state.lastSyncedAt ? (
+        <p className="mt-3 text-sm text-muted">
+          最後に同期:{" "}
+          <time dateTime={state.lastSyncedAt}>
+            {state.lastSyncedAt.slice(0, 10).replaceAll("-", "/")} {state.lastSyncedAt.slice(11, 19)}
+          </time>
+        </p>
+      ) : null}
+      {state.error ? <p className="mt-3 text-sm text-danger">{state.error}</p> : null}
+      {state.conflicts.length > 0 ? (
+        <div className="mt-6">
+          <h3 className="label mb-3 text-danger">競合 {state.conflicts.length}</h3>
+          <ul className="divide-y divide-line border-y border-line">
+            {state.conflicts.map((conflict) => (
+              <ConflictRow key={conflict.id} conflict={conflict} />
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/** 競合したページ。両方の版をダウンロードでき、ドライブの版をダウンロードしたら手元の版で強制上書きできる */
+function ConflictRow({ conflict }: { conflict: ConflictView }) {
+  const sync = useSync();
+  const db = useDatabase();
+  if (!sync) return null;
+  const page = conflict.local ?? conflict.remote;
+  const name = page ? pageName(page) : conflict.id;
+  const download = (side: "local" | "remote") => {
+    const text = sync.conflictFile(conflict.id, side);
+    if (!text) return;
+    downloadJson(`${name.replace(/[\\/:*?"<>|]/g, "_")}-${side === "local" ? "手元" : "ドライブ"}`, text);
+  };
+  return (
+    <li className="py-3">
+      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {conflict.local ? (
+          <Link to={pathOf(db, conflict.local)} className="link">
+            {name}
+          </Link>
+        ) : (
+          <span>{name}</span>
+        )}
+        <span className="text-xs text-muted">{kindLabel[conflict.kind]}</span>
+        <span className="text-xs text-muted">
+          手元: {conflict.local ? "あり" : "消した"} / ドライブ: {conflict.remote ? "あり" : "消した"}
+        </span>
+      </p>
+      <p className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => download("local")}
+          disabled={!conflict.local}
+          className="btn btn-sm"
+        >
+          手元をダウンロード
+        </button>
+        <button
+          type="button"
+          onClick={() => download("remote")}
+          disabled={!conflict.remote}
+          className="btn btn-sm"
+        >
+          {conflict.downloaded ? "ドライブをダウンロード済み" : "ドライブをダウンロード"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (window.confirm(`「${name}」を手元の版で上書きする`)) void sync.overwrite(conflict.id);
+          }}
+          disabled={!conflict.canOverwrite}
+          className="btn btn-sm btn-danger"
+        >
+          強制上書き
+        </button>
+      </p>
+    </li>
   );
 }

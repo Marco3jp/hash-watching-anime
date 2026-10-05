@@ -5,6 +5,7 @@ import { buildCharacterSidePanel } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
 import { CopyMenu } from "../components/CopyMenu.tsx";
 import {
+  ConflictWarning,
   DeleteButton,
   LinkedPages,
   Missing,
@@ -43,6 +44,7 @@ function CharacterView({ db, character }: { db: Database; character: Character }
               onAliases={(aliases) => update({ aliases })}
             />
           </div>
+          <ConflictWarning ids={[character.id]} />
           <CopyMenu page={character} />
           <DeleteButton
             message={`「${character.title}」を消す`}

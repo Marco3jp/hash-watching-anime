@@ -1,16 +1,18 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { pagesOf } from "../model/views.ts";
+import { tokenMarginMs } from "../sync/SyncController.ts";
 import { JumpSuggest } from "./components/JumpSuggest.tsx";
 import { BrokenStorage } from "./components/Recovery.tsx";
 import { paths, hashName } from "./paths.ts";
-import { useDatabase, useStoreStatus } from "./store.ts";
+import { useDatabase, useStoreStatus, useSync, useSyncState } from "./store.ts";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `shrink-0 font-medium ${isActive ? "text-theme-dark" : "text-theme hover:text-theme-dark"}`;
 
 export function Layout() {
   const navigate = useNavigate();
+  const sync = useSync();
   const db = useDatabase();
   const status = useStoreStatus();
   const [text, setText] = useState("");
@@ -44,7 +46,7 @@ export function Layout() {
               ホーム
             </NavLink>
             <NavLink to={paths.settings} className={navClass}>
-              書き出しと読み込み
+              {sync ? "同期と書き出し" : "書き出しと読み込み"}
             </NavLink>
           </nav>
           <form
@@ -52,6 +54,8 @@ export function Layout() {
             className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto"
             role="search"
           >
+            <SyncBadge />
+            <AuthStatus />
             <JumpSuggest
               type="search"
               aria-label="検索"
@@ -76,4 +80,61 @@ export function Layout() {
       </main>
     </div>
   );
+}
+
+/** 同期できないときと、競合があるときだけ出す。どちらも設定で見る */
+function SyncBadge() {
+  const state = useSyncState();
+  if (state.status === "error") {
+    return (
+      <Link to={paths.settings} className="shrink-0 text-sm text-danger">
+        同期できない
+      </Link>
+    );
+  }
+  if (state.conflicts.length > 0) {
+    return (
+      <Link to={paths.settings} className="shrink-0 text-sm text-danger">
+        競合 {state.conflicts.length}
+      </Link>
+    );
+  }
+  return null;
+}
+
+/** Google の認証。未認証と認証切れは、押すとつなぐ */
+function AuthStatus() {
+  const sync = useSync();
+  const state = useSyncState();
+  const now = useNow(30_000);
+  if (!sync) return null;
+  const left =
+    state.status === "off" || state.status === "signed-out" || state.tokenExpiresAt === null
+      ? 0
+      : state.tokenExpiresAt - tokenMarginMs - now;
+  if (left > 0) {
+    return (
+      <Link to={paths.settings} className="shrink-0 text-sm text-muted hover:text-fg">
+        認証済（残{Math.ceil(left / 60_000)}分）
+      </Link>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => void sync.connect()}
+      className={`btn btn-sm shrink-0 ${state.status === "off" ? "" : "text-danger"}`}
+    >
+      {state.status === "off" ? "未認証" : "認証切れ（要再認証）"}
+    </button>
+  );
+}
+
+function useNow(intervalMs: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(timer);
+  }, [intervalMs]);
+  return now;
 }

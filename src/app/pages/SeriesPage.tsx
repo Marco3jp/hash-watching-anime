@@ -15,6 +15,7 @@ import { CopyMenu } from "../components/CopyMenu.tsx";
 import { InlineText } from "../components/InlineText.tsx";
 import { MoveButton } from "../components/MoveButton.tsx";
 import {
+  ConflictWarning,
   DeleteButton,
   LinkedPages,
   Missing,
@@ -62,6 +63,7 @@ function SeriesView({ db, series }: { db: Database; series: Series }) {
               onAliases={(aliases) => update({ aliases })}
             />
           </div>
+          <ConflictWarning ids={[series.id]} />
           <CopyMenu page={series} />
           <DeleteButton
             message={`「${series.title}」を消す`}

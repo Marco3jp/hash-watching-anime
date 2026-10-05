@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildExample } from "./example.ts";
 import {
   cleanAliases,
@@ -70,6 +70,22 @@ describe("deleteCharacter", () => {
     const panel = buildEpisodeSidePanel(db, first.id);
     expect(panel.links.map((item) => item.title)).toEqual(["富樫勇太"]);
   });
+
+  it("消した印を残し、行を外したシリーズと話の updatedAt を進める", () => {
+    const { db, tv1, rikka, first } = example();
+    const before = { series: tv1.updatedAt, episode: first.updatedAt };
+    vi.useFakeTimers({ now: new Date("2030-01-01T00:00:00Z") });
+    try {
+      deleteCharacter(db, rikka.id);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(db.deleted).toEqual([
+      { id: rikka.id, kind: "character", deletedAt: "2030-01-01T00:00:00.000Z" },
+    ]);
+    expect(tv1.updatedAt).not.toBe(before.series);
+    expect(first.updatedAt).not.toBe(before.episode);
+  });
 });
 
 describe("deleteSeason", () => {
@@ -78,6 +94,15 @@ describe("deleteSeason", () => {
     deleteSeason(db, tv1.id);
     expect(db.episodes.some((item) => item.seasonId === tv1.id)).toBe(false);
     expect(db.episodes).toHaveLength(2);
+  });
+
+  it("シーズンと、その話の消した印を残す", () => {
+    const { db, tv1 } = example();
+    const episodeIds = db.episodes
+      .filter((item) => item.seasonId === tv1.id)
+      .map((item) => item.id);
+    deleteSeason(db, tv1.id);
+    expect(db.deleted.map((item) => item.id).sort()).toEqual([tv1.id, ...episodeIds].sort());
   });
 });
 
