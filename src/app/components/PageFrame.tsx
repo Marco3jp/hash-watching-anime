@@ -9,13 +9,11 @@ import { useDatabase, useSyncState } from "../store.ts";
  * 余白は 4 の倍数の段で揃える。見出しと中身は 12px、ブロック同士は 32px。
  */
 export function PageFrame({
-  pageId,
   kicker,
   header,
   body,
   side,
 }: {
-  pageId: string;
   kicker: string;
   header: ReactNode;
   body: ReactNode;
@@ -24,10 +22,7 @@ export function PageFrame({
   return (
     <article>
       <header>
-        <p className="mb-1 flex items-baseline gap-3">
-          <span className="label">{kicker}</span>
-          <ConflictMark pageId={pageId} />
-        </p>
+        <p className="label mb-1">{kicker}</p>
         {header}
       </header>
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
@@ -40,13 +35,24 @@ export function PageFrame({
   );
 }
 
-/** 同期で競合しているページ。直すのは設定で */
-function ConflictMark({ pageId }: { pageId: string }) {
+/**
+ * 同期で競合しているページ。削除やコピーの並びに置き、触る前に気づけるようにする。
+ * 解消は設定で。ids のどれかが競合していれば出す（劇場版の話の面はシーズンも見る）
+ */
+export function ConflictWarning({ ids }: { ids: string[] }) {
   const { conflicts } = useSyncState();
-  if (!conflicts.some((item) => item.id === pageId)) return null;
+  if (!conflicts.some((item) => ids.includes(item.id))) return null;
   return (
-    <Link to={paths.settings} className="text-xs font-medium text-danger">
-      競合
+    <Link
+      to={paths.settings}
+      role="alert"
+      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-danger/60 bg-danger/10 px-3 text-sm font-medium text-danger hover:border-danger hover:bg-danger/20"
+    >
+      <svg aria-hidden viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M8 2.5 14 13.5H2L8 2.5Z" strokeLinejoin="round" />
+        <path d="M8 6.5v3.25M8 11.5v.01" strokeLinecap="round" />
+      </svg>
+      同期の競合
     </Link>
   );
 }

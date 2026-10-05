@@ -18,6 +18,7 @@ import { BodyEditor } from "../components/BodyEditor.tsx";
 import { CopyMenu } from "../components/CopyMenu.tsx";
 import { InlineText } from "../components/InlineText.tsx";
 import {
+  ConflictWarning,
   DeleteButton,
   LinkedPages,
   Missing,
@@ -52,7 +53,6 @@ function SeasonView({ db, season }: { db: Database; season: Season }) {
 
   return (
     <PageFrame
-      pageId={season.id}
       kicker="シーズン"
       header={
         <div className="flex flex-wrap items-start gap-3">
@@ -72,6 +72,7 @@ function SeasonView({ db, season }: { db: Database; season: Season }) {
             />
           </div>
           <UnitToggle value={season.unit} onChange={(unit) => update({ unit })} />
+          <ConflictWarning ids={[season.id]} />
           {collapsed ? null : <CopyMenu page={season} />}
           <DeleteButton
             message={`「${season.title}」を消す`}

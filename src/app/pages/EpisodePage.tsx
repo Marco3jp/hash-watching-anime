@@ -16,6 +16,7 @@ import { CopyMenu } from "../components/CopyMenu.tsx";
 import { InlineText } from "../components/InlineText.tsx";
 import {
   AddButton,
+  ConflictWarning,
   DeleteButton,
   LinkedPages,
   Missing,
@@ -59,7 +60,6 @@ function EpisodeView({
 
   return (
     <PageFrame
-      pageId={episode.id}
       kicker={panel.collapsed ? "劇場版・単発" : "話"}
       header={
         <>
@@ -114,6 +114,7 @@ function EpisodeView({
                 onAliases={(aliases) => update({ aliases })}
               />
             </div>
+            <ConflictWarning ids={panel.collapsed ? [episode.id, season.id] : [episode.id]} />
             <CopyMenu page={episode} />
             <DeleteButton
               message={`「${pageName(episode)}」を消す`}

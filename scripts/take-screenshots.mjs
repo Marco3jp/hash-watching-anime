@@ -265,6 +265,17 @@ async function main() {
     await page.screenshot({ path: conflictDest, fullPage: true });
     console.log(`  保存完了: ${conflictDest}`);
 
+    // 競合したページの面。削除やコピーの並びに「同期の競合」が出る
+    console.log("  撮影中: season-conflict");
+    await page.goto(`${baseUrl}/seasons/${tv1.id}`);
+    await page.getByRole("alert").filter({ hasText: "同期の競合" }).waitFor();
+    await settle(page);
+    const seasonConflictDest = join(screenshotsDir, "season-conflict.png");
+    await page.screenshot({ path: seasonConflictDest, fullPage: true });
+    console.log(`  保存完了: ${seasonConflictDest}`);
+    await page.goto(`${baseUrl}/settings`);
+    await page.getByRole("button", { name: "強制上書き" }).waitFor();
+
     if (!(await page.getByRole("button", { name: "強制上書き" }).isDisabled())) {
       throw new Error("ドライブの版をダウンロードする前に強制上書きできる");
     }
