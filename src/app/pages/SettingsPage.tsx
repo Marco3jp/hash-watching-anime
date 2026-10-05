@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent } from "react";
+import { Link } from "react-router-dom";
 import {
   exportJson,
   mergeImport,
@@ -8,6 +9,9 @@ import {
   type ImportPreview,
 } from "../../model/storage.ts";
 import type { Database } from "../../model/types.ts";
+import type { ConflictView } from "../../sync/SyncController.ts";
+import { downloadText } from "../download.ts";
+import { kindLabel, pageName, pathOf } from "../paths.ts";
 import { useDatabase, useStore, useSync, useSyncState } from "../store.ts";
 
 export function SettingsPage() {
@@ -19,13 +23,7 @@ export function SettingsPage() {
   const [done, setDone] = useState<string | null>(null);
 
   const onExport = () => {
-    const blob = new Blob([exportJson(db)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `hash-watching-anime-${new Date().toISOString().slice(0, 10)}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    downloadText(`hash-watching-anime-${new Date().toISOString().slice(0, 10)}.json`, exportJson(db));
   };
 
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -187,6 +185,76 @@ function SyncSection() {
         </p>
       ) : null}
       {state.error ? <p className="mt-3 text-sm text-danger">{state.error}</p> : null}
+      {state.conflicts.length > 0 ? (
+        <div className="mt-6">
+          <h3 className="label mb-3 text-danger">競合 {state.conflicts.length}</h3>
+          <ul className="divide-y divide-line border-y border-line">
+            {state.conflicts.map((conflict) => (
+              <ConflictRow key={conflict.id} conflict={conflict} />
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+/** 競合したページ。両方の版をダウンロードでき、ドライブの版をダウンロードしたら手元の版で強制上書きできる */
+function ConflictRow({ conflict }: { conflict: ConflictView }) {
+  const sync = useSync();
+  const db = useDatabase();
+  if (!sync) return null;
+  const page = conflict.local ?? conflict.remote;
+  const name = page ? pageName(page) : conflict.id;
+  const download = (side: "local" | "remote") => {
+    const text = sync.conflictFile(conflict.id, side);
+    if (!text) return;
+    const fileName = `${name.replace(/[\\/:*?"<>|]/g, "_")}-${side === "local" ? "手元" : "ドライブ"}.json`;
+    downloadText(fileName, text);
+  };
+  return (
+    <li className="py-3">
+      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {conflict.local ? (
+          <Link to={pathOf(db, conflict.local)} className="link">
+            {name}
+          </Link>
+        ) : (
+          <span>{name}</span>
+        )}
+        <span className="text-xs text-muted">{kindLabel[conflict.kind]}</span>
+        <span className="text-xs text-muted">
+          手元: {conflict.local ? "あり" : "消した"} / ドライブ: {conflict.remote ? "あり" : "消した"}
+        </span>
+      </p>
+      <p className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => download("local")}
+          disabled={!conflict.local}
+          className="btn btn-sm"
+        >
+          手元をダウンロード
+        </button>
+        <button
+          type="button"
+          onClick={() => download("remote")}
+          disabled={!conflict.remote}
+          className="btn btn-sm"
+        >
+          {conflict.downloaded ? "ドライブをダウンロード済み" : "ドライブをダウンロード"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (window.confirm(`「${name}」を手元の版で上書きする`)) void sync.overwrite(conflict.id);
+          }}
+          disabled={!conflict.canOverwrite}
+          className="btn btn-sm btn-danger"
+        >
+          強制上書き
+        </button>
+      </p>
+    </li>
   );
 }

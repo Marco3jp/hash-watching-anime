@@ -23,7 +23,13 @@ export function useSync(): SyncController | null {
   return useContext(SyncContext);
 }
 
-const offState: SyncState = { status: "off", lastSyncedAt: null, error: null };
+const offState: SyncState = {
+  status: "off",
+  lastSyncedAt: null,
+  error: null,
+  tokenExpiresAt: null,
+  conflicts: [],
+};
 const noop = () => () => undefined;
 
 export function useSyncState(): SyncState {

@@ -1,19 +1,21 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { Page } from "../../model/types.ts";
-import { kindLabel, pageName, pathOf } from "../paths.ts";
-import { useDatabase } from "../store.ts";
+import { kindLabel, pageName, pathOf, paths } from "../paths.ts";
+import { useDatabase, useSyncState } from "../store.ts";
 
 /**
  * 左が本文、右がサイドパネル。サイドパネルは views.ts が組んだものを並べる。
  * 余白は 4 の倍数の段で揃える。見出しと中身は 12px、ブロック同士は 32px。
  */
 export function PageFrame({
+  pageId,
   kicker,
   header,
   body,
   side,
 }: {
+  pageId: string;
   kicker: string;
   header: ReactNode;
   body: ReactNode;
@@ -22,7 +24,10 @@ export function PageFrame({
   return (
     <article>
       <header>
-        <p className="label mb-1">{kicker}</p>
+        <p className="mb-1 flex items-baseline gap-3">
+          <span className="label">{kicker}</span>
+          <ConflictMark pageId={pageId} />
+        </p>
         {header}
       </header>
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
@@ -32,6 +37,17 @@ export function PageFrame({
         </aside>
       </div>
     </article>
+  );
+}
+
+/** 同期で競合しているページ。直すのは設定で */
+function ConflictMark({ pageId }: { pageId: string }) {
+  const { conflicts } = useSyncState();
+  if (!conflicts.some((item) => item.id === pageId)) return null;
+  return (
+    <Link to={paths.settings} className="text-xs font-medium text-danger">
+      競合
+    </Link>
   );
 }
 

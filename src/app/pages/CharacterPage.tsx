@@ -32,6 +32,7 @@ function CharacterView({ db, character }: { db: Database; character: Character }
 
   return (
     <PageFrame
+      pageId={character.id}
       kicker="キャラクター"
       header={
         <div className="flex flex-wrap items-start gap-3">

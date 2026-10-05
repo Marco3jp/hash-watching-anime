@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSeries, emptyDatabase, updateSeries } from "../model/records.ts";
 import { PageStore, exportJson, parseExport, type StorageLike } from "../model/storage.ts";
-import { DriveAuthError, type Drive, type DriveFile } from "./drive.ts";
+import { DriveAuthError, DriveChangedError, type Drive, type DriveFile } from "./drive.ts";
 import type { Auth } from "./googleAuth.ts";
 import { SyncController, syncSettingsKey } from "./SyncController.ts";
 
@@ -23,15 +23,25 @@ class FakeDrive implements Drive {
   file: DriveFile | null = null;
   writes = 0;
   expired = false;
+  /** 次の write の前に、ほかの端末が上げたことにする */
+  beforeWrite: (() => void) | null = null;
   async read() {
     if (this.expired) throw new DriveAuthError("切れた");
-    return this.file;
+    return this.file ? { ...this.file } : null;
   }
-  async write(_token: string, id: string | null, text: string) {
+  async write(_token: string, file: DriveFile | null, text: string) {
     if (this.expired) throw new DriveAuthError("切れた");
+    const hook = this.beforeWrite;
+    this.beforeWrite = null;
+    hook?.();
+    if ((this.file?.version ?? null) !== (file?.version ?? null)) {
+      throw new DriveChangedError("変わった");
+    }
+    this.put(text);
+  }
+  put(text: string) {
     this.writes += 1;
-    this.file = { id: id ?? "file-1", text };
-    return this.file.id;
+    this.file = { id: "file-1", text, version: String(Number(this.file?.version ?? 0) + 1) };
   }
 }
 
@@ -40,11 +50,16 @@ const auth: Auth = {
   revoke: () => undefined,
 };
 
-function device(drive: Drive) {
-  const storage = new MemoryStorage();
+function device(drive: Drive, storage = new MemoryStorage()) {
   const store = new PageStore(storage);
   const sync = new SyncController({ store, drive, auth, settings: storage, debounceMs: 1000 });
   return { storage, store, sync };
+}
+
+function titles(text: string) {
+  return parseExport(text)
+    .series.map((item) => item.title)
+    .sort();
 }
 
 beforeEach(() => {
@@ -56,14 +71,17 @@ afterEach(() => {
 });
 
 describe("SyncController", () => {
-  it("ドライブにファイルが無ければ、手元を上げる", async () => {
+  it("ドライブにファイルが無ければ、手元を上げる。トークンも保存する", async () => {
     const drive = new FakeDrive();
     const a = device(drive);
     a.store.update((db) => createSeries(db, { title: "作品", unit: "serial" }));
     await a.sync.connect();
     expect(a.sync.getSnapshot().status).toBe("synced");
-    expect(parseExport(drive.file!.text).series.map((item) => item.title)).toEqual(["作品"]);
-    expect(JSON.parse(a.storage.getItem(syncSettingsKey)!)).toMatchObject({ enabled: true });
+    expect(titles(drive.file!.text)).toEqual(["作品"]);
+    expect(JSON.parse(a.storage.getItem(syncSettingsKey)!)).toMatchObject({
+      enabled: true,
+      token: { value: "token" },
+    });
   });
 
   it("ほかの端末の変更を取り込み、手元の変更と合わせて上げる", async () => {
@@ -88,22 +106,19 @@ describe("SyncController", () => {
       "A の作品（直した）",
       "B の作品",
     ]);
-    expect(
-      parseExport(drive.file!.text)
-        .series.map((item) => item.title)
-        .sort(),
-    ).toEqual(["A の作品（直した）", "B の作品"]);
+    expect(titles(drive.file!.text)).toEqual(["A の作品（直した）", "B の作品"]);
   });
 
   it("ドライブと手元が同じなら上げない", async () => {
     const drive = new FakeDrive();
     const db = emptyDatabase();
     createSeries(db, { title: "作品", unit: "serial" });
-    drive.file = { id: "file-1", text: exportJson(db) };
+    drive.put(exportJson(db));
+    const writes = drive.writes;
     const a = device(drive);
-    a.store.replace(parseExport(drive.file.text));
+    a.store.replace(parseExport(drive.file!.text));
     await a.sync.connect();
-    expect(drive.writes).toBe(0);
+    expect(drive.writes).toBe(writes);
     expect(a.sync.getSnapshot().status).toBe("synced");
   });
 
@@ -122,39 +137,50 @@ describe("SyncController", () => {
     expect(drive.writes).toBe(writes + 1);
   });
 
-  it("トークンが切れたら signed-out にして、つなぎ直すまで回さない", async () => {
+  it("ドライブに断られたらトークンを捨てて signed-out にし、つなぎ直すまで回さない", async () => {
     const drive = new FakeDrive();
     const a = device(drive);
     await a.sync.connect();
     drive.expired = true;
     await a.sync.syncNow();
     expect(a.sync.getSnapshot().status).toBe("signed-out");
+    expect(JSON.parse(a.storage.getItem(syncSettingsKey)!).token).toBeNull();
 
     drive.expired = false;
     a.store.update((db) => createSeries(db, { title: "作品", unit: "serial" }));
     await vi.advanceTimersByTimeAsync(5000);
-    expect(parseExport(drive.file!.text).series).toEqual([]);
+    expect(titles(drive.file!.text)).toEqual([]);
     await a.sync.connect();
-    expect(parseExport(drive.file!.text).series.map((item) => item.title)).toEqual(["作品"]);
+    expect(titles(drive.file!.text)).toEqual(["作品"]);
   });
 
-  it("開き直すと、使っている設定は残り、トークンは無い", async () => {
+  it("開き直しても、トークンが生きていればそのまま同期する", async () => {
     const drive = new FakeDrive();
     const a = device(drive);
     await a.sync.connect();
-    const reopened = new SyncController({
-      store: new PageStore(a.storage),
-      drive,
-      auth,
-      settings: a.storage,
+    a.store.update((db) => createSeries(db, { title: "作品", unit: "serial" }));
+    a.sync.dispose();
+
+    const reopened = device(drive, a.storage);
+    expect(reopened.sync.getSnapshot()).toMatchObject({
+      status: "synced",
+      tokenExpiresAt: Date.now() + 3600_000,
     });
-    expect(reopened.getSnapshot()).toMatchObject({
-      status: "signed-out",
-      lastSyncedAt: a.sync.getSnapshot().lastSyncedAt,
-    });
+    await reopened.sync.start();
+    expect(titles(drive.file!.text)).toEqual(["作品"]);
   });
 
-  it("やめると off に戻り、書き換えても上げない", async () => {
+  it("トークンが切れたら signed-out になり、開き直しても signed-out", async () => {
+    const drive = new FakeDrive();
+    const a = device(drive);
+    await a.sync.connect();
+    await vi.advanceTimersByTimeAsync(3600_000 - 60_000 + 1);
+    expect(a.sync.getSnapshot().status).toBe("signed-out");
+    const reopened = device(drive, a.storage);
+    expect(reopened.sync.getSnapshot().status).toBe("signed-out");
+  });
+
+  it("やめると off に戻り、トークンも base も捨て、書き換えても上げない", async () => {
     const drive = new FakeDrive();
     const a = device(drive);
     await a.sync.connect();
@@ -163,15 +189,109 @@ describe("SyncController", () => {
     a.store.update((db) => createSeries(db, { title: "作品", unit: "serial" }));
     await vi.advanceTimersByTimeAsync(5000);
     expect(drive.writes).toBe(writes);
-    expect(a.sync.getSnapshot()).toMatchObject({ status: "off", lastSyncedAt: null });
+    expect(a.sync.getSnapshot()).toMatchObject({ status: "off", lastSyncedAt: null, tokenExpiresAt: null });
+    expect(JSON.parse(a.storage.getItem(syncSettingsKey)!)).toMatchObject({
+      enabled: false,
+      token: null,
+      base: {},
+    });
   });
 
   it("ドライブのファイルが読めなければ、上げずに error にする", async () => {
     const drive = new FakeDrive();
-    drive.file = { id: "file-1", text: "{" };
+    drive.file = { id: "file-1", text: "{", version: "1" };
     const a = device(drive);
     await a.sync.connect();
     expect(a.sync.getSnapshot().status).toBe("error");
     expect(drive.writes).toBe(0);
+  });
+
+  it("読んでから上げるまでにほかの端末が上げたら、読み直して合わせる", async () => {
+    const drive = new FakeDrive();
+    const a = device(drive);
+    const b = device(drive);
+    await a.sync.connect();
+    await b.sync.connect();
+    b.store.update((db) => createSeries(db, { title: "B の作品", unit: "serial" }));
+    a.store.update((db) => createSeries(db, { title: "A の作品", unit: "serial" }));
+    drive.beforeWrite = () => {
+      const other = parseExport(drive.file!.text);
+      other.series.push(...b.store.getSnapshot().series);
+      drive.put(exportJson(other));
+    };
+    await a.sync.syncNow();
+    expect(titles(drive.file!.text)).toEqual(["A の作品", "B の作品"]);
+  });
+
+  describe("競合", () => {
+    async function conflicted() {
+      const drive = new FakeDrive();
+      const a = device(drive);
+      const b = device(drive);
+      const series = a.store.update((db) => createSeries(db, { title: "作品", unit: "serial" }));
+      await a.sync.connect();
+      await b.sync.connect();
+
+      vi.setSystemTime(new Date("2026-10-02T00:01:00Z"));
+      a.store.update((db) => updateSeries(db, series.id, { title: "A で直した" }));
+      await a.sync.syncNow();
+      vi.setSystemTime(new Date("2026-10-02T00:01:30Z"));
+      b.store.update((db) => updateSeries(db, series.id, { title: "B で直した" }));
+      await b.sync.syncNow();
+      return { drive, a, b, series };
+    }
+
+    it("両方で直したページは競合にして、手元もドライブも書き換えない", async () => {
+      const { drive, b, series } = await conflicted();
+      expect(b.sync.getSnapshot().conflicts).toMatchObject([
+        { id: series.id, kind: "series", local: { title: "B で直した" }, remote: { title: "A で直した" } },
+      ]);
+      expect(b.store.getSnapshot().series[0].title).toBe("B で直した");
+      expect(titles(drive.file!.text)).toEqual(["A で直した"]);
+    });
+
+    it("競合は開き直しても残る", async () => {
+      const { b, series } = await conflicted();
+      const reopened = device(new FakeDrive(), b.storage);
+      expect(reopened.sync.getSnapshot().conflicts.map((item) => item.id)).toEqual([series.id]);
+    });
+
+    it("両方の版をダウンロードできる", async () => {
+      const { b, series } = await conflicted();
+      expect(titles(b.sync.conflictFile(series.id, "local")!)).toEqual(["B で直した"]);
+      expect(titles(b.sync.conflictFile(series.id, "remote")!)).toEqual(["A で直した"]);
+    });
+
+    it("ドライブの版をダウンロードするまで、強制上書きはできない", async () => {
+      const { drive, a, b, series } = await conflicted();
+      expect(b.sync.getSnapshot().conflicts[0].canOverwrite).toBe(false);
+      await b.sync.overwrite(series.id);
+      expect(titles(drive.file!.text)).toEqual(["A で直した"]);
+
+      b.sync.conflictFile(series.id, "remote");
+      expect(b.sync.getSnapshot().conflicts[0]).toMatchObject({ downloaded: true, canOverwrite: true });
+      await b.sync.overwrite(series.id);
+      expect(b.sync.getSnapshot().conflicts).toEqual([]);
+      expect(titles(drive.file!.text)).toEqual(["B で直した"]);
+
+      // A は直していないので、そのまま B の版を受け取る
+      await a.sync.syncNow();
+      expect(a.store.getSnapshot().series[0].title).toBe("B で直した");
+      expect(a.sync.getSnapshot().conflicts).toEqual([]);
+    });
+
+    it("ダウンロードした後にドライブの版が変わったら、ダウンロードし直す", async () => {
+      const { a, b, series } = await conflicted();
+      b.sync.conflictFile(series.id, "remote");
+      vi.setSystemTime(new Date("2026-10-02T00:02:00Z"));
+      a.store.update((db) => updateSeries(db, series.id, { title: "A でもう一度" }));
+      await a.sync.syncNow();
+      await b.sync.syncNow();
+      expect(b.sync.getSnapshot().conflicts[0]).toMatchObject({
+        remote: { title: "A でもう一度" },
+        downloaded: false,
+        canOverwrite: false,
+      });
+    });
   });
 });

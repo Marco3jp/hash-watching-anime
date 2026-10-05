@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { PageStore, storageKeys } from "../model/storage.ts";
 import { createDrive, driveScope } from "../sync/drive.ts";
 import { createGoogleAuth, preloadGoogleAuth } from "../sync/googleAuth.ts";
-import { SyncController } from "../sync/SyncController.ts";
+import { SyncController, syncSettingsKey } from "../sync/SyncController.ts";
 import { StoreContext, SyncContext } from "./store.ts";
 
 const keys = new Set<string>(Object.values(storageKeys));
@@ -26,14 +26,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === null || keys.has(event.key)) store.reload();
+      // 別のタブでつないだり、やめたりしたとき。トークンもここにある
+      if (event.key === null || event.key === syncSettingsKey) sync?.refresh();
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [store]);
+  }, [store, sync]);
 
   useEffect(() => {
     if (!sync) return;
     if (sync.getSnapshot().status !== "off") preloadGoogleAuth();
+    // トークンは保存してあるので、生きていれば開いたときに同期する
+    void sync.start();
     // ほかの端末で書いた分を、タブに戻ったときに取ってくる
     const onVisible = () => {
       const { status } = sync.getSnapshot();

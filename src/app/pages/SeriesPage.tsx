@@ -47,6 +47,7 @@ function SeriesView({ db, series }: { db: Database; series: Series }) {
 
   return (
     <PageFrame
+      pageId={series.id}
       kicker="シリーズ"
       header={
         <div className="flex flex-wrap items-start gap-3">

@@ -16,16 +16,24 @@ const upload = "https://www.googleapis.com/upload/drive/v3/files";
 /** トークンが切れたか、取り消された */
 export class DriveAuthError extends Error {}
 
+/** 読んでから上げるまでに、ほかの端末が上げた */
+export class DriveChangedError extends Error {}
+
 export interface DriveFile {
   id: string;
   text: string;
+  /** Drive のファイルの version。上げるたびに増える */
+  version: string;
 }
 
 export interface Drive {
   /** 無ければ null */
   read(token: string): Promise<DriveFile | null>;
-  /** id が null なら作る。作ったファイルの id を返す */
-  write(token: string, id: string | null, text: string): Promise<string>;
+  /**
+   * file が null なら作る。あれば、読んだときの version から変わっていないかを確かめてから上げる。
+   * 変わっていれば DriveChangedError。確かめてから上げるまでの間は守れない
+   */
+  write(token: string, file: DriveFile | null, text: string): Promise<void>;
 }
 
 export function createDrive(fetcher: typeof fetch = (...args) => fetch(...args)): Drive {
@@ -39,32 +47,44 @@ export function createDrive(fetcher: typeof fetch = (...args) => fetch(...args))
     return response;
   };
 
+  const find = async (token: string) => {
+    const query = new URLSearchParams({
+      spaces: "appDataFolder",
+      q: `name = '${driveFileName}' and trashed = false`,
+      fields: "files(id,version,modifiedTime)",
+      orderBy: "modifiedTime desc",
+    });
+    const list = (await (await call(token, `${api}?${query}`)).json()) as {
+      files?: { id: string; version: string }[];
+    };
+    return list.files?.[0] ?? null;
+  };
+
   return {
     async read(token) {
-      const query = new URLSearchParams({
-        spaces: "appDataFolder",
-        q: `name = '${driveFileName}' and trashed = false`,
-        fields: "files(id,modifiedTime)",
-        orderBy: "modifiedTime desc",
-      });
-      const list = (await (await call(token, `${api}?${query}`)).json()) as {
-        files?: { id: string }[];
-      };
-      const id = list.files?.[0]?.id;
-      if (!id) return null;
-      const text = await (await call(token, `${api}/${id}?alt=media`)).text();
-      return { id, text };
+      const found = await find(token);
+      if (!found) return null;
+      const text = await (await call(token, `${api}/${found.id}?alt=media`)).text();
+      return { id: found.id, text, version: String(found.version) };
     },
 
-    async write(token, id, text) {
-      if (id) {
-        await call(token, `${upload}/${id}?uploadType=media`, {
+    async write(token, file, text) {
+      if (file) {
+        const now = (await (
+          await call(token, `${api}/${file.id}?fields=version`)
+        ).json()) as { version: string };
+        if (String(now.version) !== file.version) {
+          throw new DriveChangedError("ドライブのファイルが変わった");
+        }
+        await call(token, `${upload}/${file.id}?uploadType=media`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: text,
         });
-        return id;
+        return;
       }
+      // 無いと読んでから、ほかの端末が作っていたら作らない。2つになると、片方が使われずに残る
+      if (await find(token)) throw new DriveChangedError("ドライブにファイルができた");
       const boundary = `hash-watching-anime-${crypto.randomUUID()}`;
       const body = [
         `--${boundary}`,
@@ -77,14 +97,11 @@ export function createDrive(fetcher: typeof fetch = (...args) => fetch(...args))
         text,
         `--${boundary}--`,
       ].join("\r\n");
-      const created = (await (
-        await call(token, `${upload}?uploadType=multipart&fields=id`, {
-          method: "POST",
-          headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
-          body,
-        })
-      ).json()) as { id: string };
-      return created.id;
+      await call(token, `${upload}?uploadType=multipart&fields=id`, {
+        method: "POST",
+        headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+        body,
+      });
     },
   };
 }

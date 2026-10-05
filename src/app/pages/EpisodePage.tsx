@@ -54,6 +54,7 @@ function EpisodeView({
 
   return (
     <PageFrame
+      pageId={episode.id}
       kicker={panel.collapsed ? "劇場版・単発" : "話"}
       header={
         <>

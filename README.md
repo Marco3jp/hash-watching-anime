@@ -30,14 +30,70 @@ npm run dev
 
 ブラウザから Drive API を直接呼び、Drive の appDataFolder（このアプリだけが見える隠しフォルダ）に `hash-watching-anime.json` を1つ置く。サーバーは無い。
 
-使うには Google Cloud で OAuth クライアント ID を作り、ビルドに `VITE_GOOGLE_CLIENT_ID` で渡す。
+- 両方の端末で直したページは「競合」になり、同期から外れる。設定で両方の版をダウンロードでき、ドライブの版をダウンロードしてから「強制上書き」で手元の版を勝たせる。ドライブの版を取りたいときは、ダウンロードした JSON を「読み込み」で読む
+- トークンは LocalStorage に置き、開き直しても使う。切れるまでは約1時間。切れたらヘッダーの「認証切れ（要再認証）」を押す
 
-1. Google Cloud のプロジェクトで Google Drive API を有効にする
-2. Google Auth platform で同意画面を作る。対象は「外部」。テスト中は、使う Google アカウントをテストユーザーに足す。データアクセスにスコープ `https://www.googleapis.com/auth/drive.appdata` を足す（非機密のスコープ）
-3. クライアントで「ウェブ アプリケーション」の OAuth クライアント ID を作り、承認済みの JavaScript 生成元に `https://marco3jp.github.io` を足す。手元で試すなら `http://localhost` と `http://localhost:43123` も足し、開発サーバーを localhost で開く
-4. GitHub のリポジトリの Settings → Secrets and variables → Actions → Variables に `GOOGLE_CLIENT_ID` を置く。手元では `.env.local` に `VITE_GOOGLE_CLIENT_ID=...`
+### セットアップ
 
-クライアント ID はページに埋め込まれて誰でも読めるもので、秘密ではない。
+クライアント ID はページに埋め込まれて誰でも読めるもので、秘密ではない。クライアントシークレットは使わない。
+
+Google Cloud（1回だけ）
+
+1. https://console.cloud.google.com/projectcreate でプロジェクトを作る。名前は何でもよい（例: `hash-watching-anime`）
+2. 上のプロジェクト選択で、作ったプロジェクトを選ぶ
+3. https://console.cloud.google.com/apis/library/drive.googleapis.com を開き「有効にする」
+4. https://console.cloud.google.com/auth/overview を開き「開始」
+   1. アプリ情報: アプリ名 `#watching_anime`、ユーザー サポートメールに自分のアドレス →「次へ」
+   2. 対象: 「外部」→「次へ」
+   3. 連絡先情報: 自分のアドレス →「次へ」
+   4. 終了: ポリシーに同意 →「作成」
+5. 左の「対象」（Audience）→ テストユーザーの「Add users」→ 同期に使う Google アカウントを足す →「保存」。公開ステータスは「テスト」のままでよい
+6. 左の「データアクセス」（Data Access）→「スコープを追加または削除」→ 下の「スコープの手動追加」に `https://www.googleapis.com/auth/drive.appdata` を入れて「テーブルに追加」→「更新」→ ページ下の「保存」
+7. 左の「クライアント」（Clients）→「クライアントを作成」
+   1. アプリケーションの種類: 「ウェブ アプリケーション」
+   2. 名前: 何でもよい
+   3. 承認済みの JavaScript 生成元に次の3つを足す
+      - `https://marco3jp.github.io`
+      - `http://localhost`
+      - `http://localhost:43123`
+   4. 承認済みのリダイレクト URI: 空のまま
+   5. 「作成」→ 出てきたクライアント ID（`…apps.googleusercontent.com`）を控える
+
+GitHub Pages に載せる（1回だけ）
+
+8. `gh variable set GOOGLE_CLIENT_ID -R Marco3jp/hash-watching-anime --body "<控えたクライアント ID>"`（リポジトリの変数。または Settings → Secrets and variables → Actions → Variables → New repository variable で `GOOGLE_CLIENT_ID`）。`gh variable list -R Marco3jp/hash-watching-anime` に出れば入っている
+9. `main` に push するか、Actions の Deploy を Run workflow で回す
+10. https://marco3jp.github.io/hash-watching-anime/ を開き、ナビが「同期と書き出し」、ヘッダーの検索欄の左が「未認証」になっていることを確かめる
+
+手元で試す（任意）
+
+11. リポジトリ直下に `.env.local` を作り、`VITE_GOOGLE_CLIENT_ID=<控えたクライアント ID>` と書く（`*.local` は git に入らない）
+12. `npm run dev`
+13. http://localhost:43123 で開く。`127.0.0.1` だと生成元が違い、Google に断られる
+
+端末ごと
+
+14. ヘッダーの「未認証」（または設定の「同期する」）を押す
+15. ポップアップでテストユーザーに足したアカウントを選ぶ
+16. 「Google はこのアプリを確認していません」が出たら「続行」
+17. 許可を求める画面で「続行」
+18. ヘッダーが「認証済（残59分）」になり、設定に「最後に同期」の時刻が出る
+19. 2台目以降も 14〜18 を行う。手元のデータは、ドライブのデータと合わさる。同じページが両方で違えば競合になる
+
+確かめる
+
+20. 1台目でページを直し、3秒待つ
+21. 2台目でタブに戻るか、設定の「今すぐ同期」を押す
+22. 直した内容が出れば同期できている
+
+約1時間ごと
+
+23. ヘッダーが「認証切れ（要再認証）」になったら押す。2回目からは同意の画面は出ず、ポップアップが開いて閉じる
+
+やめる
+
+24. 設定の「やめる」。トークンを取り消し、この端末の同期の記録（base と競合）を捨てる。ドライブのファイルは残る
+25. ドライブのファイルも消すときは、Google ドライブの 設定 → アプリを管理 → このアプリの「オプション」→「アプリデータを削除」
 
 ## 中身
 
@@ -47,7 +103,7 @@ npm run dev
 - `src/model/body.ts` — 本文の textarea の差分を `TextRun` に写す。行の分割と結合
 - `src/model/search.ts` — 検索とサジェストの候補
 - `src/model/storage.ts` — LocalStorage への保存、JSON の書き出しと読み込み
-- `src/model/sync.ts` — 同期で、手元とドライブの Database をページ単位で合わせる
+- `src/model/sync.ts` — 同期で、手元とドライブの Database をページ単位で合わせる。両方で直したページは競合
 - `src/sync/` — Google のトークン、Drive API、同期の段取り
 - `src/model/example.ts` — 『中二病でも恋がしたい！』周辺の見本。テストとスクショのシード
 - `src/app/` — 画面。ページは `src/router.tsx`
