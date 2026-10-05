@@ -17,6 +17,7 @@ import { pasteEpisodeName } from "../components/episodePaste.ts";
 import { InlineText } from "../components/InlineText.tsx";
 import {
   AddButton,
+  ConflictWarning,
   DeleteButton,
   Missing,
   PageFrame,
@@ -122,6 +123,7 @@ function EpisodeView({
                 onTitlePaste={onNamePaste}
               />
             </div>
+            <ConflictWarning ids={panel.collapsed ? [episode.id, season.id] : [episode.id]} />
             <CopyMenu page={episode} />
             <DeleteButton
               message={`「${pageName(episode)}」を消す`}

@@ -10,14 +10,14 @@ import {
   type MigrationStep,
   type VersionedData,
 } from "./migrate.ts";
-import type { Character, Database, Episode, Page, Season, Series, Term } from "./types.ts";
+import type { Character, Database, Deletion, Episode, Page, Season, Series, Term } from "./types.ts";
 
 /**
  * 保存先は LocalStorage。Sparkling Journey と同じく、種類ごとに1キーへ配列を置く。
  * 公開先が同じ marco3jp.github.io なので、キーにはプロジェクト名を付けて分ける。
  * キーの末尾は版。版を上げたら新しいキーへ書き、前の版のキーは消さずに残す。
  */
-const collections = ["series", "seasons", "episodes", "characters", "terms"] as const;
+const collections = ["series", "seasons", "episodes", "characters", "terms", "deleted"] as const;
 
 type Collection = (typeof collections)[number];
 
@@ -26,7 +26,7 @@ export const storageKeys = Object.fromEntries(
 ) as Record<Collection, string>;
 
 function emptyDb(): Database {
-  return { series: [], seasons: [], episodes: [], characters: [], terms: [] };
+  return { series: [], seasons: [], episodes: [], characters: [], terms: [], deleted: [] };
 }
 
 export interface StorageLike {
@@ -170,6 +170,16 @@ export class PageStore {
     return result;
   }
 
+  /** 同期で合わせた Database に差し替える。読めなかったときは書かない */
+  replace(next: Database): void {
+    if (this.status.kind === "broken") {
+      throw new Error("保存したデータを読めなかったので、書き込まない");
+    }
+    this.write(next);
+    this.snapshot = next;
+    this.emit();
+  }
+
   /** 別のタブが書いたときに読み直す */
   reload(): void {
     const result = readStorage(this.storage);
@@ -223,6 +233,7 @@ export function exportJson(db: Database): string {
     episodes: db.episodes,
     characters: db.characters,
     terms: db.terms,
+    deleted: db.deleted,
   };
   return JSON.stringify(payload, null, 2);
 }
@@ -274,6 +285,7 @@ function toDatabase(data: VersionedData): Database {
     episodes: (data.episodes ?? []) as Episode[],
     characters: (data.characters ?? []) as Character[],
     terms: (data.terms ?? []) as Term[],
+    deleted: (data.deleted ?? []) as Deletion[],
   });
 }
 
@@ -292,6 +304,7 @@ function normalizeDatabase(db: Database): Database {
     episodes: db.episodes.map((episode) => normalizeEpisode(normalizeBody(episode))),
     characters: db.characters.map(normalizeBody),
     terms: db.terms.map(normalizeBody),
+    deleted: db.deleted,
   };
 }
 
@@ -314,9 +327,14 @@ function normalizeEpisode(episode: Episode): Episode {
   };
 }
 
+/** 読み込みで数えるページの配列。消した印は数えない */
+const pageCollections = ["series", "seasons", "episodes", "characters", "terms"] as const;
+
+type PageCollection = (typeof pageCollections)[number];
+
 export interface ImportPreview {
-  create: Record<Collection, number>;
-  overwrite: Record<Collection, string[]>;
+  create: Record<PageCollection, number>;
+  overwrite: Record<PageCollection, string[]>;
 }
 
 export function previewImport(current: Database, incoming: Database): ImportPreview {
@@ -327,9 +345,9 @@ export function previewImport(current: Database, incoming: Database): ImportPrev
       overwrite: next.filter((item) => ids.has(item.id)).map((item) => item.title),
     };
   };
-  const create = {} as Record<Collection, number>;
-  const overwrite = {} as Record<Collection, string[]>;
-  for (const name of collections) {
+  const create = {} as Record<PageCollection, number>;
+  const overwrite = {} as Record<PageCollection, string[]>;
+  for (const name of pageCollections) {
     const result = split<{ id: string; title: string }>(current[name], incoming[name]);
     create[name] = result.create;
     overwrite[name] = result.overwrite;
@@ -337,13 +355,28 @@ export function previewImport(current: Database, incoming: Database): ImportPrev
   return { create, overwrite };
 }
 
-/** 同じ id は置き換え、無い id は足す。id は引き直さない */
+/**
+ * 同じ id は置き換え、無い id は足す。id は引き直さない。
+ * 読み込みでは消さない。読み込んだ JSON の deleted は見ない。
+ * ここで消したページを読み込んだときは、消した印を外し、いま直したことにする。
+ * 同期で、ほかの端末に残っている消した印に負けないように。
+ */
 export function mergeImport(db: Database, incoming: Database): void {
-  db.series = upsert(db.series, incoming.series);
-  db.seasons = upsert(db.seasons, incoming.seasons);
-  db.episodes = upsert(db.episodes, incoming.episodes);
-  db.characters = upsert(db.characters, incoming.characters);
-  db.terms = upsert(db.terms, incoming.terms);
+  const deleted = new Set(db.deleted.map((item) => item.id));
+  const restored = new Set<string>();
+  const stamp = new Date().toISOString();
+  const revive = <T extends Page>(pages: T[]): T[] =>
+    pages.map((page) => {
+      if (!deleted.has(page.id)) return page;
+      restored.add(page.id);
+      return { ...page, updatedAt: stamp };
+    });
+  db.series = upsert(db.series, revive(incoming.series));
+  db.seasons = upsert(db.seasons, revive(incoming.seasons));
+  db.episodes = upsert(db.episodes, revive(incoming.episodes));
+  db.characters = upsert(db.characters, revive(incoming.characters));
+  db.terms = upsert(db.terms, revive(incoming.terms));
+  db.deleted = db.deleted.filter((item) => !restored.has(item.id));
 }
 
 function upsert<T extends { id: string }>(current: T[], incoming: T[]): T[] {

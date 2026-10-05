@@ -19,6 +19,7 @@ import { CopyMenu } from "../components/CopyMenu.tsx";
 import { pasteEpisodeName } from "../components/episodePaste.ts";
 import { InlineText } from "../components/InlineText.tsx";
 import {
+  ConflictWarning,
   DeleteButton,
   Missing,
   PageFrame,
@@ -72,6 +73,7 @@ function SeasonView({ db, season }: { db: Database; season: Season }) {
             />
           </div>
           <UnitToggle value={season.unit} onChange={(unit) => update({ unit })} />
+          <ConflictWarning ids={[season.id]} />
           {collapsed ? null : <CopyMenu page={season} />}
           <DeleteButton
             message={`「${season.title}」を消す`}

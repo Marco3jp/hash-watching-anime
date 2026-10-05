@@ -6,6 +6,7 @@ import { BodyEditor } from "../components/BodyEditor.tsx";
 import { CopyMenu } from "../components/CopyMenu.tsx";
 import { Mentions } from "../components/Mentions.tsx";
 import {
+  ConflictWarning,
   DeleteButton,
   Missing,
   PageFrame,
@@ -43,6 +44,7 @@ function CharacterView({ db, character }: { db: Database; character: Character }
               onAliases={(aliases) => update({ aliases })}
             />
           </div>
+          <ConflictWarning ids={[character.id]} />
           <CopyMenu page={character} />
           <DeleteButton
             message={`「${character.title}」を消す`}

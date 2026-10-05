@@ -57,6 +57,7 @@ describe("用語集", () => {
     const { db, tv1, first, evilEye } = example();
     deleteTerm(db, evilEye.id);
     expect(tv1.terms.some((item) => item.termId === evilEye.id)).toBe(false);
+    expect(db.deleted).toContainEqual(expect.objectContaining({ id: evilEye.id, kind: "term" }));
     const runs = first.body.blocks.flatMap((block) => block.runs);
     expect(runs.some((run) => run.pageId === evilEye.id)).toBe(true);
   });
@@ -87,7 +88,7 @@ describe("mentionsOf", () => {
 });
 
 describe("用語を足す前のデータ", () => {
-  it("用語のキーが無い v2 を、用語なしとして読む", () => {
+  it("用語のキーが無い v3 を、用語なしとして読む", () => {
     const { db } = example();
     const storage = new MemoryStorage();
     const seasons = db.seasons.map(({ terms: _terms, ...rest }) => rest);
@@ -101,7 +102,7 @@ describe("用語を足す前のデータ", () => {
     expect(store.getSnapshot().seasons.every((item) => item.terms.length === 0)).toBe(true);
   });
 
-  it("terms の無い v2 の書き出しも読める", () => {
+  it("terms の無い v3 の書き出しも読める", () => {
     const { db } = example();
     const { terms: _terms, ...old } = JSON.parse(exportJson(db));
     const back = parseExport(JSON.stringify(old));

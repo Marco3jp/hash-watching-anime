@@ -6,6 +6,7 @@ import { BodyEditor } from "../components/BodyEditor.tsx";
 import { CopyMenu } from "../components/CopyMenu.tsx";
 import { Mentions } from "../components/Mentions.tsx";
 import {
+  ConflictWarning,
   DeleteButton,
   Missing,
   PageFrame,
@@ -43,6 +44,7 @@ function TermView({ db, term }: { db: Database; term: Term }) {
               onAliases={(aliases) => update({ aliases })}
             />
           </div>
+          <ConflictWarning ids={[term.id]} />
           <CopyMenu page={term} />
           <DeleteButton
             message={`「${term.title}」を消す`}

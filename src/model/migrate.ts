@@ -7,17 +7,18 @@
  * 移行は1段ずつ進める。v1 から v3 へは v1→v2→v3 と順に通す。
  */
 
-export const currentVersion = 2;
+export const currentVersion = 3;
 
 /** 版ごとの、保存する配列の名前。LocalStorage のキーは hash-watching-anime:<名前>:v<版> */
 export const collectionsByVersion: Record<number, readonly string[]> = {
   1: ["series", "episodes", "characters"],
-  2: ["series", "seasons", "episodes", "characters", "terms"],
+  2: ["series", "seasons", "episodes", "characters"],
+  3: ["series", "seasons", "episodes", "characters", "deleted", "terms"],
 };
 
 /**
  * 版を上げずに足した配列。無ければ空として読む。
- * terms（用語）は 2026-10-05 に v2 のまま足した。前の v2 のキーと書き出しには無い
+ * terms（用語）は 2026-10-06 に v3 のまま足した。前の v3 のキーと書き出しには無い
  */
 export const optionalCollections: readonly string[] = ["terms"];
 
@@ -40,8 +41,9 @@ export const steps: Record<number, MigrationStep> = {
       return { ...rest, seasonId: seriesId };
     }),
     characters: data.characters,
-    terms: [],
   }),
+  /** 同期のために、消したページの印を置く配列を足す。v2 までに消したページの印は無い */
+  2: (data) => ({ ...data, deleted: [] }),
 };
 
 function asObject(item: unknown): Record<string, unknown> {

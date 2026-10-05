@@ -134,6 +134,16 @@ export interface Appearance {
   note: string;
 }
 
+/**
+ * 消したページの印。配列から外すだけだと、同期でほかの端末に残っていたページが新規に見えて戻る。
+ * 消した後にほかの端末で直したページは、同期で競合になる（sync.ts）。
+ */
+export interface Deletion {
+  id: string;
+  kind: Page["kind"];
+  deletedAt: string;
+}
+
 export interface Database {
   series: Series[];
   seasons: Season[];
@@ -141,4 +151,5 @@ export interface Database {
   characters: Character[];
   /** 前の版には無い。読むときに空で埋める */
   terms: Term[];
+  deleted: Deletion[];
 }
