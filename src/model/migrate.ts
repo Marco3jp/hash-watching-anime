@@ -12,8 +12,14 @@ export const currentVersion = 2;
 /** 版ごとの、保存する配列の名前。LocalStorage のキーは hash-watching-anime:<名前>:v<版> */
 export const collectionsByVersion: Record<number, readonly string[]> = {
   1: ["series", "episodes", "characters"],
-  2: ["series", "seasons", "episodes", "characters"],
+  2: ["series", "seasons", "episodes", "characters", "terms"],
 };
+
+/**
+ * 版を上げずに足した配列。無ければ空として読む。
+ * terms（用語）は 2026-10-05 に v2 のまま足した。前の v2 のキーと書き出しには無い
+ */
+export const optionalCollections: readonly string[] = ["terms"];
 
 /** ある版の配列の組。中身の形は版ごとに違うので、ここでは見ない */
 export type VersionedData = Record<string, unknown[]>;
@@ -34,6 +40,7 @@ export const steps: Record<number, MigrationStep> = {
       return { ...rest, seasonId: seriesId };
     }),
     characters: data.characters,
+    terms: [],
   }),
 };
 

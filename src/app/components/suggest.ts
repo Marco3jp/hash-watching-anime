@@ -4,10 +4,11 @@ import type { Page } from "../../model/types.ts";
 export type SuggestOption =
   /** name は一覧に出す名前。無ければページ名。別名で当たったときに別名を出す */
   | { type: "page"; page: Page; hint?: string; name?: string }
-  | { type: "create"; text: string };
+  /** kind は、本文のサジェストで何として作るか。ほかの欄では作るものが1つなので持たない */
+  | { type: "create"; text: string; kind?: "character" | "term" };
 
 export function optionKey(option: SuggestOption): string {
-  return option.type === "page" ? option.page.id : `create:${option.text}`;
+  return option.type === "page" ? option.page.id : `create:${option.kind ?? ""}:${option.text}`;
 }
 
 /**

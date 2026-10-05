@@ -69,6 +69,7 @@ async function main() {
     const second = byTitle(db.episodes, "旋律の…聖調理人（プリーステス）");
     const film = byTitle(db.episodes, "映画 中二病でも恋がしたい！ -Take On Me-");
     const rikka = byTitle(db.characters, "小鳥遊六花");
+    const evilEye = byTitle(db.terms, "邪王真眼");
 
     const executablePath =
       process.env.CHROME_PATH ?? "/usr/bin/google-chrome-stable";
@@ -104,6 +105,7 @@ async function main() {
       { name: "episode-roster", path: `/episodes/${second.id}` },
       { name: "film", path: `/episodes/${film.id}` },
       { name: "character", path: `/characters/${rikka.id}` },
+      { name: "term", path: `/terms/${evilEye.id}` },
       { name: "search", path: `/search?text=${encodeURIComponent("六花")}` },
       { name: "settings", path: "/settings" },
     ];

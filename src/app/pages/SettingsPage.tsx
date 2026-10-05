@@ -43,7 +43,7 @@ export function SettingsPage() {
     store.update((draft) => mergeImport(draft, pending.data));
     const { create } = pending.preview;
     setDone(
-      `読み込んだ。シリーズ ${pending.data.series.length}、シーズン ${pending.data.seasons.length}、話 ${pending.data.episodes.length}、キャラクター ${pending.data.characters.length}（うち新規 ${create.series + create.seasons + create.episodes + create.characters}）。`,
+      `読み込んだ。シリーズ ${pending.data.series.length}、シーズン ${pending.data.seasons.length}、話 ${pending.data.episodes.length}、キャラクター ${pending.data.characters.length}、用語 ${pending.data.terms.length}（うち新規 ${create.series + create.seasons + create.episodes + create.characters + create.terms}）。`,
     );
     setPending(null);
   };
@@ -52,7 +52,8 @@ export function SettingsPage() {
     ? pending.preview.overwrite.series.length +
       pending.preview.overwrite.seasons.length +
       pending.preview.overwrite.episodes.length +
-      pending.preview.overwrite.characters.length
+      pending.preview.overwrite.characters.length +
+      pending.preview.overwrite.terms.length
     : 0;
 
   return (
@@ -86,7 +87,7 @@ export function SettingsPage() {
         {pending ? (
           <div className="mt-4 rounded-lg border border-line bg-surface p-4 text-sm">
             <p>
-              新しく足す: シリーズ {pending.preview.create.series}、シーズン {pending.preview.create.seasons}、話 {pending.preview.create.episodes}、キャラクター {pending.preview.create.characters}
+              新しく足す: シリーズ {pending.preview.create.series}、シーズン {pending.preview.create.seasons}、話 {pending.preview.create.episodes}、キャラクター {pending.preview.create.characters}、用語 {pending.preview.create.terms}
             </p>
             {overwriteCount > 0 ? (
               <div className="mt-2 text-danger">
@@ -95,6 +96,7 @@ export function SettingsPage() {
                 <OverwriteList title="シーズン" names={pending.preview.overwrite.seasons} />
                 <OverwriteList title="話" names={pending.preview.overwrite.episodes} />
                 <OverwriteList title="キャラクター" names={pending.preview.overwrite.characters} />
+                <OverwriteList title="用語" names={pending.preview.overwrite.terms} />
               </div>
             ) : null}
             <p className="mt-4 flex gap-2">

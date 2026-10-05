@@ -27,6 +27,7 @@ import {
 import { PageSuggest } from "../components/PageSuggest.tsx";
 import { PlaybackBar } from "../components/PlaybackBar.tsx";
 import { SeasonPlaces } from "../components/SeasonPlaces.tsx";
+import { SeasonTerms } from "../components/SeasonTerms.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
 import { dateLabel, pageName, paths, hashName, weekdayOf } from "../paths.ts";
 import { currentTime } from "../playback.ts";
@@ -160,6 +161,9 @@ function EpisodeView({
           ) : null}
           <SideBlock title="キャラクター">
             <EpisodeCharacters db={db} episode={episode} season={season} />
+          </SideBlock>
+          <SideBlock title="用語">
+            <SeasonTerms db={db} season={season} />
           </SideBlock>
         </>
       }

@@ -21,7 +21,7 @@ import {
   splitRuns,
   stampWritten,
 } from "../../model/body.ts";
-import { createCharacter, setBody } from "../../model/records.ts";
+import { createCharacter, createTerm, setBody } from "../../model/records.ts";
 import { hasExactName, matchedName, suggestPages } from "../../model/search.ts";
 import type { Database, MemoBlock, Page, TextRun } from "../../model/types.ts";
 import { pagesOf } from "../../model/views.ts";
@@ -144,8 +144,10 @@ export function BodyEditor({
               area.setSelectionRange(offset, offset);
               return true;
             }}
-            onCreate={(title) =>
-              store.update((draft) => createCharacter(draft, { title }))
+            onCreate={(title, kind) =>
+              store.update((draft) =>
+                kind === "term" ? createTerm(draft, { title }) : createCharacter(draft, { title }),
+              )
             }
             hrefOf={hrefOf}
           />
@@ -185,7 +187,7 @@ function BlockRow({
   onSplit: (runs: TextRun[], offset: number) => void;
   onMerge: () => void;
   onFocusSibling: (direction: -1 | 1) => boolean;
-  onCreate: (title: string) => Page;
+  onCreate: (title: string, kind: "character" | "term") => Page;
   /** 本文のリンクの開く先。ページが無ければ null */
   hrefOf: (pageId: string) => string | null;
 }) {
@@ -213,7 +215,8 @@ function BlockRow({
       );
     }
     if (mention.query.trim() && !hasExactName(pages, mention.query)) {
-      options.push({ type: "create", text: mention.query.trim() });
+      options.push({ type: "create", text: mention.query.trim(), kind: "character" });
+      options.push({ type: "create", text: mention.query.trim(), kind: "term" });
     }
   }
 
@@ -226,7 +229,8 @@ function BlockRow({
 
   const pick = (option: SuggestOption) => {
     if (!mention) return;
-    const target = option.type === "page" ? option.page : onCreate(option.text);
+    const target =
+      option.type === "page" ? option.page : onCreate(option.text, option.kind ?? "character");
     const end = mention.start + 1 + mention.query.length;
     // 別名で当たったときは、別名のまま差し込む。フルネームの題名を毎回書かずに済むように
     const result = insertLink(block.runs, mention.start, end, {
@@ -323,7 +327,9 @@ function BlockRow({
                   active={active}
                   onPick={pick}
                   onHover={setActive}
-                  createLabel={(value) => `キャラクター「${value}」を作ってリンク`}
+                  createLabel={(value, kind) =>
+                    `${kind === "term" ? "用語" : "キャラクター"}「${value}」を作ってリンク`
+                  }
                   className="pointer-events-auto absolute left-0 top-7"
                 />
               ) : null
@@ -442,9 +448,9 @@ function findMention(
   return null;
 }
 
-/** キャラクターを先に、話、シーズン、シリーズの順に候補へ出す。開いているページ自身は外す */
+/** キャラクターを先に、用語、話、シーズン、シリーズの順に候補へ出す。開いているページ自身は外す */
 function orderForSuggest(db: Database, page: Page): Page[] {
-  return [...db.characters, ...db.episodes, ...db.seasons, ...db.series].filter(
+  return [...db.characters, ...db.terms, ...db.episodes, ...db.seasons, ...db.series].filter(
     (item) => item.id !== page.id,
   );
 }

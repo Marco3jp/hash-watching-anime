@@ -17,7 +17,7 @@ export function SuggestList({
   active: number;
   onPick: (option: SuggestOption) => void;
   onHover: (index: number) => void;
-  createLabel: (text: string) => string;
+  createLabel: (text: string, kind?: "character" | "term") => string;
   className?: string;
 }) {
   if (options.length === 0) return null;
@@ -53,7 +53,7 @@ export function SuggestList({
               </span>
             </>
           ) : (
-            <span className="font-medium text-theme">{createLabel(option.text)}</span>
+            <span className="font-medium text-theme">{createLabel(option.text, option.kind)}</span>
           )}
         </li>
       ))}

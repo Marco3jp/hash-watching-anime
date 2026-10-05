@@ -11,6 +11,8 @@ import type {
   SeasonUnit,
   Series,
   SeriesSeason,
+  SeasonTerm,
+  Term,
 } from "./types.ts";
 
 /**
@@ -23,7 +25,7 @@ function now(): string {
 }
 
 export function emptyDatabase(): Database {
-  return { series: [], seasons: [], episodes: [], characters: [] };
+  return { series: [], seasons: [], episodes: [], characters: [], terms: [] };
 }
 
 export function createSeries(
@@ -65,6 +67,7 @@ export function createSeason(
     body: { blocks: input.blocks ?? [] },
     unit: input.unit,
     characters: [],
+    terms: [],
     createdAt: stamp,
     updatedAt: stamp,
   };
@@ -123,6 +126,25 @@ export function createCharacter(
   return character;
 }
 
+export function createTerm(
+  db: Database,
+  input: { title: string; aliases?: string[]; blocks?: MemoBlock[] },
+): Term {
+  const stamp = now();
+  const title = input.title.trim();
+  const term: Term = {
+    id: crypto.randomUUID(),
+    kind: "term",
+    title,
+    aliases: cleanAliases(title, input.aliases ?? []),
+    body: { blocks: input.blocks ?? [] },
+    createdAt: stamp,
+    updatedAt: stamp,
+  };
+  db.terms.push(term);
+  return term;
+}
+
 /** 同じシーズンの最後の話の sortKey に 10 を足す */
 export function nextSortKey(db: Database, seasonId: string): number {
   const keys = db.episodes
@@ -167,6 +189,43 @@ export function removeSeasonCharacter(
 ): void {
   const season = mustFind(db.seasons, seasonId);
   season.characters = season.characters.filter((item) => item.id !== rowId);
+  touch(season);
+}
+
+/** 用語集の最後に足す。同じ用語がもう入っていれば、その行を返す */
+export function addSeasonTerm(
+  db: Database,
+  seasonId: string,
+  input: { termId: string; note?: string },
+): SeasonTerm {
+  const season = mustFind(db.seasons, seasonId);
+  const existing = season.terms.find((item) => item.termId === input.termId);
+  if (existing) return existing;
+  const row: SeasonTerm = {
+    id: crypto.randomUUID(),
+    termId: input.termId,
+    note: input.note ?? "",
+  };
+  season.terms.push(row);
+  touch(season);
+  return row;
+}
+
+export function updateSeasonTerm(
+  db: Database,
+  seasonId: string,
+  rowId: string,
+  patch: { note: string },
+): void {
+  const season = mustFind(db.seasons, seasonId);
+  const row = mustFind(season.terms, rowId);
+  row.note = patch.note;
+  touch(season);
+}
+
+export function removeSeasonTerm(db: Database, seasonId: string, rowId: string): void {
+  const season = mustFind(db.seasons, seasonId);
+  season.terms = season.terms.filter((item) => item.id !== rowId);
   touch(season);
 }
 
@@ -313,6 +372,16 @@ export function updateCharacter(
   touch(character);
 }
 
+export function updateTerm(
+  db: Database,
+  termId: string,
+  patch: { title?: string; aliases?: string[] },
+): void {
+  const term = mustFind(db.terms, termId);
+  applyPageFields(term, patch);
+  touch(term);
+}
+
 export function setBody(db: Database, pageId: string, body: MemoBody): void {
   const page = mustFindPage(db, pageId);
   page.body = body;
@@ -379,6 +448,15 @@ export function deleteCharacter(db: Database, characterId: string): void {
   }
 }
 
+/** 用語集の行も外す。本文の pageId は残し、ただの文字として出す */
+export function deleteTerm(db: Database, termId: string): void {
+  mustFind(db.terms, termId);
+  db.terms = db.terms.filter((item) => item.id !== termId);
+  for (const season of db.seasons) {
+    season.terms = season.terms.filter((item) => item.termId !== termId);
+  }
+}
+
 /** title と同じ文字列、空、重複を落とす */
 export function cleanAliases(title: string, aliases: string[]): string[] {
   const seen = new Set<string>([title]);
@@ -413,7 +491,8 @@ function mustFindPage(db: Database, id: string): Page {
     db.series.find((item) => item.id === id) ??
     db.seasons.find((item) => item.id === id) ??
     db.episodes.find((item) => item.id === id) ??
-    db.characters.find((item) => item.id === id);
+    db.characters.find((item) => item.id === id) ??
+    db.terms.find((item) => item.id === id);
   if (!page) throw new Error(`${id} が見つからない`);
   return page;
 }

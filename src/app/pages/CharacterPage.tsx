@@ -4,6 +4,7 @@ import type { Character, Database } from "../../model/types.ts";
 import { buildCharacterSidePanel } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
 import { CopyMenu } from "../components/CopyMenu.tsx";
+import { Mentions } from "../components/Mentions.tsx";
 import {
   DeleteButton,
   Missing,
@@ -83,6 +84,9 @@ function CharacterView({ db, character }: { db: Database; character: Character }
                 ))}
               </ul>
             )}
+          </SideBlock>
+          <SideBlock title="本文に出てきた話">
+            <Mentions mentions={panel.mentions} />
           </SideBlock>
         </>
       }

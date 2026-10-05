@@ -29,6 +29,7 @@ import {
 import { MoveButton } from "../components/MoveButton.tsx";
 import { PageSuggest } from "../components/PageSuggest.tsx";
 import { SeasonPlaces } from "../components/SeasonPlaces.tsx";
+import { SeasonTerms } from "../components/SeasonTerms.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
 import { paths } from "../paths.ts";
 import { UnitToggle } from "../components/UnitToggle.tsx";
@@ -92,6 +93,9 @@ function SeasonView({ db, season }: { db: Database; season: Season }) {
           </SideBlock>
           <SideBlock title="キャラクター名簿">
             <Roster db={db} season={season} />
+          </SideBlock>
+          <SideBlock title="用語集">
+            <SeasonTerms db={db} season={season} editable />
           </SideBlock>
         </>
       }

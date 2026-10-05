@@ -2,11 +2,13 @@ import type { Database, MemoBlock, TextRun } from "./types.ts";
 import {
   addAppearance,
   addSeasonCharacter,
+  addSeasonTerm,
   addSeriesSeason,
   createCharacter,
   createEpisode,
   createSeason,
   createSeries,
+  createTerm,
   emptyDatabase,
 } from "./records.ts";
 
@@ -83,6 +85,11 @@ export function buildExample(): Database {
   addSeasonCharacter(db, tv1.id, { characterId: rikka.id, role: "ヒロイン" });
   addSeasonCharacter(db, tv1.id, { characterId: shinka.id, role: "クラスメイト" });
 
+  const evilEye = createTerm(db, { title: "邪王真眼", aliases: ["じゃおうしんがん"] });
+  const boundary = createTerm(db, { title: "不可視境界線" });
+  addSeasonTerm(db, tv1.id, { termId: evilEye.id, note: "六花の右目" });
+  addSeasonTerm(db, tv1.id, { termId: boundary.id });
+
   const episode1 = createEpisode(db, {
     seasonId: tv1.id,
     title: "邂逅の…邪王真眼",
@@ -101,6 +108,11 @@ export function buildExample(): Database {
         { text: "止めて考えてるけど、" },
         { text: "小鳥遊六花", pageId: rikka.id },
         { text: "の台詞だけ芝居がかってて、まわりと温度違うのわざとだよね？" },
+      ]),
+      line("b-e1-jaou", "06:40", "2026-10-01T21:08:20+09:00", [
+        { text: "出た" },
+        { text: "邪王真眼", pageId: evilEye.id },
+        { text: "！！眼帯の下そうなってたの！？" },
       ]),
       line("b-e1-eye", "11:10", "2026-10-01T21:14:05+09:00", [
         { text: "このカットの" },
