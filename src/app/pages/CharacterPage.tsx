@@ -6,7 +6,6 @@ import { BodyEditor } from "../components/BodyEditor.tsx";
 import { CopyMenu } from "../components/CopyMenu.tsx";
 import {
   DeleteButton,
-  LinkedPages,
   Missing,
   PageFrame,
   PageLink,
@@ -84,9 +83,6 @@ function CharacterView({ db, character }: { db: Database; character: Character }
                 ))}
               </ul>
             )}
-          </SideBlock>
-          <SideBlock title="本文のリンク">
-            <LinkedPages pages={panel.links} />
           </SideBlock>
         </>
       }

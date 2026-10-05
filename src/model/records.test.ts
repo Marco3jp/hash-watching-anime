@@ -10,7 +10,7 @@ import {
   updateCharacter,
 } from "./records.ts";
 import { hasExactName, matchedName, searchPages, suggestPages } from "./search.ts";
-import { buildEpisodeSidePanel, episodesIn } from "./views.ts";
+import { episodesIn } from "./views.ts";
 
 const missingSeasonId = "無いシーズン";
 const firstTitle = "邂逅の…邪王真眼";
@@ -67,8 +67,6 @@ describe("deleteCharacter", () => {
     expect(first.appearances.some((item) => item.characterId === rikka.id)).toBe(false);
     const runs = first.body.blocks.flatMap((block) => block.runs);
     expect(runs.some((run) => run.pageId === rikka.id)).toBe(true);
-    const panel = buildEpisodeSidePanel(db, first.id);
-    expect(panel.links.map((item) => item.title)).toEqual(["富樫勇太"]);
   });
 });
 

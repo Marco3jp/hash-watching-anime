@@ -5,7 +5,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   applyTextEdit,
   blockTime,
@@ -57,7 +57,6 @@ export function BodyEditor({
 }) {
   const store = useStore();
   const db = useDatabase();
-  const navigate = useNavigate();
   const [emptyId] = useState(() => crypto.randomUUID());
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const areas = useRef(new Map<string, HTMLTextAreaElement>());
@@ -85,7 +84,11 @@ export function BodyEditor({
   };
 
   const suggestable = orderForSuggest(db, page);
-  const pageIds = new Set(pagesOf(db).map((item) => item.id));
+  const pageById = new Map(pagesOf(db).map((item) => [item.id, item]));
+  const hrefOf = (pageId: string) => {
+    const target = pageById.get(pageId);
+    return target ? pathOf(db, target) : null;
+  };
   const focusedAt = blocks.find((block) => block.id === focusedId)?.writtenAt ?? null;
 
   return (
@@ -141,14 +144,10 @@ export function BodyEditor({
               area.setSelectionRange(offset, offset);
               return true;
             }}
-            onOpen={(pageId) => {
-              const target = pagesOf(db).find((item) => item.id === pageId);
-              if (target) navigate(pathOf(db, target));
-            }}
             onCreate={(title) =>
               store.update((draft) => createCharacter(draft, { title }))
             }
-            isLink={(pageId) => pageIds.has(pageId)}
+            hrefOf={hrefOf}
           />
         ))}
       </div>
@@ -173,9 +172,8 @@ function BlockRow({
   onSplit,
   onMerge,
   onFocusSibling,
-  onOpen,
   onCreate,
-  isLink,
+  hrefOf,
 }: {
   block: MemoBlock;
   onFocusRow: (focused: boolean) => void;
@@ -187,10 +185,11 @@ function BlockRow({
   onSplit: (runs: TextRun[], offset: number) => void;
   onMerge: () => void;
   onFocusSibling: (direction: -1 | 1) => boolean;
-  onOpen: (pageId: string) => void;
   onCreate: (title: string) => Page;
-  isLink: (pageId: string) => boolean;
+  /** 本文のリンクの開く先。ページが無ければ null */
+  hrefOf: (pageId: string) => string | null;
 }) {
+  const navigate = useNavigate();
   const text = plainText(block.runs);
   const [mention, setMention] = useState<Mention | null>(null);
   const [dismissed, setDismissed] = useState<number | null>(null);
@@ -255,6 +254,14 @@ function BlockRow({
     const area = event.currentTarget;
     const start = area.selectionStart;
     const end = area.selectionEnd;
+    // リンクはクリックで開く。キーボードでは、リンクの上で Ctrl（Mac は ⌘）+Enter
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      const pageId = linkAt(block.runs, start);
+      const href = pageId ? hrefOf(pageId) : null;
+      if (href) navigate(href);
+      return;
+    }
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       const runs = applyTextEdit(block.runs, area.value.slice(0, start) + area.value.slice(end));
@@ -308,7 +315,7 @@ function BlockRow({
         >
           <Backdrop
             runs={block.runs}
-            isLink={isLink}
+            hrefOf={hrefOf}
             marker={
               open ? (
                 <SuggestList
@@ -338,11 +345,6 @@ function BlockRow({
           onSelect={(event) => detect(event.currentTarget)}
           onBlur={() => setMention(null)}
           onKeyDown={onKeyDown}
-          onClick={(event) => {
-            if (!(event.metaKey || event.ctrlKey)) return;
-            const pageId = linkAt(block.runs, event.currentTarget.selectionStart);
-            if (pageId && isLink(pageId)) onOpen(pageId);
-          }}
           className="absolute inset-0 z-10 block h-full w-full resize-none overflow-hidden bg-transparent p-0 text-transparent caret-fg outline-none whitespace-pre-wrap break-words [overflow-wrap:anywhere] placeholder:text-muted/70 selection:bg-theme/30"
         />
       </div>
@@ -378,33 +380,39 @@ function WrittenAt({ value, stacked = false }: { value: string; stacked?: boolea
   );
 }
 
-/** textarea の下に同じ文字を並べ、リンクだけ色を付ける。サジェストは @ の位置に出す */
+/**
+ * textarea の下に同じ文字を並べ、リンクだけ色を付ける。サジェストは @ の位置に出す。
+ * リンクは textarea の上に重ね、クリックでそのまま開く。リンクの外のクリックは textarea へ通す
+ */
 function Backdrop({
   runs,
-  isLink,
+  hrefOf,
   marker,
   markerAt,
 }: {
   runs: TextRun[];
-  isLink: (pageId: string) => boolean;
+  hrefOf: (pageId: string) => string | null;
   marker: ReactNode;
   markerAt: number | null;
 }) {
   const [before, after] =
     markerAt === null ? [runs, []] : splitRuns(runs, markerAt);
   const render = (items: TextRun[], prefix: string) =>
-    items.map((run, index) =>
-      run.pageId && isLink(run.pageId) ? (
-        <span
+    items.map((run, index) => {
+      const href = run.pageId ? hrefOf(run.pageId) : null;
+      return href ? (
+        <Link
           key={`${prefix}${index}`}
-          className="rounded-sm bg-theme/15 text-theme shadow-[inset_0_-1px_0_var(--theme)]"
+          to={href}
+          tabIndex={-1}
+          className="pointer-events-auto relative z-20 rounded-sm bg-theme/15 text-theme shadow-[inset_0_-1px_0_var(--theme)] hover:bg-theme/25"
         >
           {run.text}
-        </span>
+        </Link>
       ) : (
         <span key={`${prefix}${index}`}>{run.text}</span>
-      ),
-    );
+      );
+    });
   return (
     <>
       <span aria-hidden>{render(before, "b")}</span>

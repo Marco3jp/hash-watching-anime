@@ -2,7 +2,6 @@ import type {
   Character,
   Database,
   Episode,
-  MemoBody,
   Page,
   Season,
   Series,
@@ -37,8 +36,6 @@ export interface EpisodeSidePanel {
   next: Episode | null;
   characters: SideCharacter[];
   characterSource: "appearance" | "roster";
-  /** 本文に保存されている id のうち、ページが残っているもの */
-  links: Page[];
 }
 
 export interface SeasonSidePanel {
@@ -46,7 +43,6 @@ export interface SeasonSidePanel {
   places: SeasonPlace[];
   episodes: Episode[];
   characters: SideCharacter[];
-  links: Page[];
   /** single で話が1本なら、開く先はその話 */
   open: OpenTarget;
 }
@@ -55,14 +51,12 @@ export interface SeriesSidePanel {
   series: Series;
   /** 並びの順。シーズンが無い行は出さない */
   seasons: { rowId: string; season: Season; note: string; episodes: number }[];
-  links: Page[];
 }
 
 export interface CharacterSidePanel {
   character: Character;
   roster: { season: Season; role: string; note: string }[];
   appearances: { episode: Episode; season: Season; note: string }[];
-  links: Page[];
 }
 
 export function pagesOf(db: Database): Page[] {
@@ -78,21 +72,6 @@ export function openSeason(db: Database, seasonId: string): OpenTarget {
   const episodes = db.episodes.filter((item) => item.seasonId === season.id);
   if (episodes.length === 1) return { kind: "episode", id: episodes[0].id };
   return { kind: "season", id: season.id };
-}
-
-export function linkedPages(body: MemoBody, pages: Page[]): Page[] {
-  const seen = new Set<string>();
-  const found: Page[] = [];
-  for (const block of body.blocks) {
-    for (const run of block.runs) {
-      if (!run.pageId || seen.has(run.pageId)) continue;
-      seen.add(run.pageId);
-      const page = pages.find((item) => item.id === run.pageId);
-      if (!page) continue;
-      found.push(page);
-    }
-  }
-  return found;
 }
 
 export function buildEpisodeSidePanel(
@@ -135,7 +114,6 @@ export function buildEpisodeSidePanel(
       return character ? [character] : [];
     }),
     characterSource,
-    links: linkedPages(episode.body, pagesOf(db)),
   };
 }
 
@@ -155,7 +133,6 @@ export function buildSeasonSidePanel(
       const character = sideCharacter(season, item.characterId, item.note, db);
       return character ? [character] : [];
     }),
-    links: linkedPages(season.body, pagesOf(db)),
     open: openSeason(db, season.id),
   };
 }
@@ -173,7 +150,6 @@ export function buildSeriesSidePanel(db: Database, seriesId: string): SeriesSide
       const episodes = db.episodes.filter((item) => item.seasonId === season.id).length;
       return [{ rowId: row.id, season, note: row.note, episodes }];
     }),
-    links: linkedPages(series.body, pagesOf(db)),
   };
 }
 
@@ -228,7 +204,6 @@ export function buildCharacterSidePanel(
           return [{ episode, season, note: item.note }];
         }),
     ),
-    links: linkedPages(character.body, pagesOf(db)),
   };
 }
 

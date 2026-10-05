@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { Page } from "../../model/types.ts";
-import { kindLabel, pageName, pathOf } from "../paths.ts";
+import { pageName, pathOf } from "../paths.ts";
 import { useDatabase } from "../store.ts";
 
 /**
@@ -62,23 +62,6 @@ export function PageLink({
     <Link to={pathOf(db, page)} className="link text-sm">
       {children ?? pageName(page)}
     </Link>
-  );
-}
-
-/** 本文に保存されている id のうち、ページが残っているもの */
-export function LinkedPages({ pages }: { pages: Page[] }) {
-  if (pages.length === 0) {
-    return null;
-  }
-  return (
-    <ul className="space-y-1.5">
-      {pages.map((page) => (
-        <li key={page.id} className="flex items-baseline gap-3">
-          <PageLink page={page} />
-          <span className="text-xs text-muted">{kindLabel[page.kind]}</span>
-        </li>
-      ))}
-    </ul>
   );
 }
 

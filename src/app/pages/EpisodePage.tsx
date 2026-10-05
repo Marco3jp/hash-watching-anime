@@ -17,7 +17,6 @@ import { InlineText } from "../components/InlineText.tsx";
 import {
   AddButton,
   DeleteButton,
-  LinkedPages,
   Missing,
   PageFrame,
   PageLink,
@@ -152,9 +151,6 @@ function EpisodeView({
           ) : null}
           <SideBlock title="キャラクター">
             <EpisodeCharacters db={db} episode={episode} season={season} />
-          </SideBlock>
-          <SideBlock title="本文のリンク">
-            <LinkedPages pages={panel.links} />
           </SideBlock>
         </>
       }

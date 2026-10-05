@@ -19,7 +19,6 @@ import { CopyMenu } from "../components/CopyMenu.tsx";
 import { InlineText } from "../components/InlineText.tsx";
 import {
   DeleteButton,
-  LinkedPages,
   Missing,
   PageFrame,
   PageLink,
@@ -93,11 +92,6 @@ function SeasonView({ db, season }: { db: Database; season: Season }) {
           <SideBlock title="キャラクター名簿">
             <Roster db={db} season={season} />
           </SideBlock>
-          {collapsed ? null : (
-            <SideBlock title="本文のリンク">
-              <LinkedPages pages={panel.links} />
-            </SideBlock>
-          )}
         </>
       }
     />
