@@ -1,3 +1,4 @@
+import type { ClipboardEvent } from "react";
 import type { Page } from "../../model/types.ts";
 import { InlineText } from "./InlineText.tsx";
 
@@ -6,6 +7,7 @@ export function TitleFields({
   page,
   onTitle,
   onAliases,
+  onTitlePaste,
   prefix,
 }: {
   page: Page;
@@ -13,6 +15,7 @@ export function TitleFields({
   prefix?: string;
   onTitle: (title: string) => void;
   onAliases: (aliases: string[]) => void;
+  onTitlePaste?: (event: ClipboardEvent<HTMLInputElement>) => void;
 }) {
   return (
     <>
@@ -27,6 +30,7 @@ export function TitleFields({
           value={page.title}
           required
           onCommit={onTitle}
+          onPaste={onTitlePaste}
           className="text-3xl leading-tight font-semibold"
         />
       </div>

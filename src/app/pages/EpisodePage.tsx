@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ClipboardEvent, ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   addAppearance,
@@ -13,6 +13,7 @@ import type { Character, Database, Episode, Season } from "../../model/types.ts"
 import { airedOnCandidates, buildEpisodeSidePanel, openSeason } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
 import { CopyMenu } from "../components/CopyMenu.tsx";
+import { pasteEpisodeName } from "../components/episodePaste.ts";
 import { InlineText } from "../components/InlineText.tsx";
 import {
   AddButton,
@@ -55,6 +56,12 @@ function EpisodeView({
   const panel = buildEpisodeSidePanel(db, episode.id);
   const update = (patch: Parameters<typeof updateEpisode>[2]) =>
     store.update((draft) => updateEpisode(draft, episode.id, patch));
+  // 「第1話カーマイン」を話数か題名の欄に貼ったら、分けて両方に入れる
+  const onNamePaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const split = pasteEpisodeName(event);
+    if (!split) return;
+    update(split);
+  };
 
   return (
     <PageFrame
@@ -86,6 +93,7 @@ function EpisodeView({
                     value={episode.label}
                     placeholder="第1話"
                     onCommit={(label) => update({ label })}
+                    onPaste={onNamePaste}
                     className="h-7 font-semibold text-theme"
                   />
                 </div>
@@ -110,6 +118,7 @@ function EpisodeView({
                 page={episode}
                 onTitle={(title) => update({ title })}
                 onAliases={(aliases) => update({ aliases })}
+                onTitlePaste={onNamePaste}
               />
             </div>
             <CopyMenu page={episode} />
