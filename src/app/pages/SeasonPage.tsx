@@ -12,7 +12,7 @@ import {
   updateSeason,
   updateSeasonCharacter,
 } from "../../model/records.ts";
-import type { Database, Season } from "../../model/types.ts";
+import type { Database, Episode, Season } from "../../model/types.ts";
 import { buildSeasonSidePanel } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
 import { CopyMenu } from "../components/CopyMenu.tsx";
@@ -91,7 +91,7 @@ function SeasonView({ db, season }: { db: Database; season: Season }) {
             <SeasonSeries db={db} season={season} places={panel.places} />
           </SideBlock>
           <SideBlock title="話">
-            <EpisodeList db={db} season={season} />
+            <EpisodeList season={season} episodes={panel.episodes} />
           </SideBlock>
           <SideBlock title="キャラクター名簿">
             <Roster db={db} season={season} />
@@ -140,10 +140,9 @@ function SeasonSeries({
   );
 }
 
-function EpisodeList({ db, season }: { db: Database; season: Season }) {
+function EpisodeList({ season, episodes }: { season: Season; episodes: Episode[] }) {
   const store = useStore();
   const navigate = useNavigate();
-  const { episodes } = buildSeasonSidePanel(db, season.id);
   const [label, setLabel] = useState("");
   const [title, setTitle] = useState("");
   const defaultLabel = season.unit === "single" && episodes.length === 0

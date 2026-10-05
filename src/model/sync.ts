@@ -1,4 +1,6 @@
+import { emptyDatabase } from "./records.ts";
 import type { Database, Deletion, Episode, Page } from "./types.ts";
+import { pagesOf } from "./views.ts";
 
 /**
  * 同期で、手元の Database とドライブの Database を合わせる。
@@ -206,21 +208,14 @@ function entries(db: Database): Map<string, Entry> {
   const map = new Map<string, Entry>();
   for (const item of db.deleted) map.set(item.id, item);
   // 同じ id に印とページがあれば、ページを取る
-  for (const page of [...db.series, ...db.seasons, ...db.episodes, ...db.characters, ...db.terms]) {
+  for (const page of pagesOf(db)) {
     map.set(page.id, page);
   }
   return map;
 }
 
 function toDatabase(map: Map<string, Entry>): Database {
-  const db: Database = {
-    series: [],
-    seasons: [],
-    episodes: [],
-    characters: [],
-    terms: [],
-    deleted: [],
-  };
+  const db = emptyDatabase();
   for (const entry of map.values()) {
     if (isDeletion(entry)) db.deleted.push(entry);
     else if (entry.kind === "series") db.series.push(entry);
@@ -264,14 +259,7 @@ function stripMissingRows(db: Database): Database {
  * 競合したときにダウンロードし、読み込みで戻せるように。無ければ null
  */
 export function pageFile(db: Database, id: string): Database | null {
-  const file: Database = {
-    series: [],
-    seasons: [],
-    episodes: [],
-    characters: [],
-    terms: [],
-    deleted: [],
-  };
+  const file = emptyDatabase();
   const series = db.series.find((item) => item.id === id);
   if (series) return { ...file, series: [series] };
   const season = db.seasons.find((item) => item.id === id);

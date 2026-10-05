@@ -41,3 +41,9 @@ export function useStoreStatus(): StoreStatus {
   const store = useStore();
   return useSyncExternalStore(store.subscribe, store.getStatus);
 }
+
+/** 最後の書き込みが失敗したときの理由。書けていれば null */
+export function useWriteError(): string | null {
+  const store = useStore();
+  return useSyncExternalStore(store.subscribe, store.getWriteError);
+}

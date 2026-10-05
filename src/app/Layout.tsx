@@ -5,7 +5,7 @@ import { tokenMarginMs } from "../sync/SyncController.ts";
 import { JumpSuggest } from "./components/JumpSuggest.tsx";
 import { BrokenStorage } from "./components/Recovery.tsx";
 import { paths, hashName } from "./paths.ts";
-import { useDatabase, useStoreStatus, useSync, useSyncState } from "./store.ts";
+import { useDatabase, useStoreStatus, useSync, useSyncState, useWriteError } from "./store.ts";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `shrink-0 font-medium ${isActive ? "text-theme-dark" : "text-theme hover:text-theme-dark"}`;
@@ -54,6 +54,7 @@ export function Layout() {
             className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto"
             role="search"
           >
+            <WriteErrorBadge />
             <SyncBadge />
             <AuthStatus />
             <JumpSuggest
@@ -79,6 +80,20 @@ export function Layout() {
         {status.kind === "broken" ? <BrokenStorage message={status.message} /> : <Outlet />}
       </main>
     </div>
+  );
+}
+
+/**
+ * LocalStorage に書けなかったとき（容量を超えたときなど）だけ出す。直した分は保存されていない。
+ * 設定で、いま画面にある中身を JSON に書き出せる
+ */
+function WriteErrorBadge() {
+  const error = useWriteError();
+  if (!error) return null;
+  return (
+    <Link to={paths.settings} title={error} className="shrink-0 text-sm text-danger">
+      保存できない
+    </Link>
   );
 }
 
@@ -122,6 +137,8 @@ function AuthStatus() {
   return (
     <button
       type="button"
+      onPointerEnter={() => sync.prepare()}
+      onFocus={() => sync.prepare()}
       onClick={() => void sync.connect()}
       className={`btn btn-sm shrink-0 ${state.status === "off" ? "" : "text-danger"}`}
     >
