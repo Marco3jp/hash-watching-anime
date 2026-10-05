@@ -1,5 +1,6 @@
 import { localTimestamp } from "../model/body.ts";
 import { emptyDatabase, markDeleted } from "../model/records.ts";
+import { pagesOf } from "../model/views.ts";
 import { exportJson, parseExport, type StorageLike } from "../model/storage.ts";
 import {
   mergeForSync,
@@ -184,7 +185,7 @@ export class SyncController {
   }
 
   /**
-   * 競合したページの片方を、書き出しと同じ JSON にする。シリーズは、その話も入れる。
+   * 競合したページの片方を、書き出しと同じ JSON にする。シーズンは、その話も入れる。
    * ドライブの版を返したら、ダウンロードしたことにする。その側で消してあれば null
    */
   conflictFile(id: string, side: "local" | "remote"): string | null {
@@ -204,7 +205,7 @@ export class SyncController {
   /**
    * 手元の版で強制上書きする。ドライブの版をダウンロードしてからでないとできない（ドライブで消してあれば要らない）。
    * base をドライブの版にして、手元だけが直したことにする。
-   * 手元で消したシリーズは、ドライブで足された話にも消した印を付ける。付けないと、ドライブに話だけが残る
+   * 手元で消したシーズンは、ドライブで足された話にも消した印を付ける。付けないと、ドライブに話だけが残る
    */
   async overwrite(id: string): Promise<void> {
     const settings = this.readSettings();
@@ -214,7 +215,7 @@ export class SyncController {
     settings.conflicts = settings.conflicts.filter((item) => item !== conflict);
     const local = this.deps.store.getSnapshot();
     const remoteEpisodes =
-      conflict.kind === "series" && !local.series.some((item) => item.id === id)
+      conflict.kind === "season" && !local.seasons.some((item) => item.id === id)
         ? (conflict.remote?.episodes ?? []).filter(
             (episode) => !local.episodes.some((item) => item.id === episode.id),
           )
@@ -301,12 +302,9 @@ export class SyncController {
     const db = this.deps.store.getSnapshot();
     return conflicts.map((conflict) => {
       const local =
-        [...db.series, ...db.episodes, ...db.characters].find((page) => page.id === conflict.id) ??
-        null;
+        pagesOf(db).find((page) => page.id === conflict.id) ?? null;
       const remote = conflict.remote
-        ? ([...conflict.remote.series, ...conflict.remote.episodes, ...conflict.remote.characters].find(
-            (page) => page.id === conflict.id,
-          ) ?? null)
+        ? (pagesOf(conflict.remote).find((page) => page.id === conflict.id) ?? null)
         : null;
       return {
         id: conflict.id,

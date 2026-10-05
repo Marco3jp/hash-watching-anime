@@ -1,0 +1,317 @@
+{
+  "version": 1,
+  "exportedAt": "2026-10-05T00:00:00.000Z",
+  "series": [
+    {
+      "id": "a29dadfd-fd03-4cc8-8f7d-e42afaf32b90",
+      "kind": "series",
+      "title": "中二病でも恋がしたい！",
+      "aliases": [
+        "1期"
+      ],
+      "body": {
+        "blocks": [
+          {
+            "id": "b-s-tv1",
+            "at": null,
+            "writtenAt": null,
+            "runs": [
+              {
+                "text": "各話の実況は話のページ。ここには作品全体で残しておきたいことだけ書く。"
+              }
+            ]
+          }
+        ]
+      },
+      "unit": "serial",
+      "characters": [
+        {
+          "id": "67b53fa8-8c11-4250-bc01-8d5b21c6a398",
+          "characterId": "331408ae-da8e-467a-8a59-4defb4d8f3ea",
+          "role": "主人公",
+          "note": ""
+        },
+        {
+          "id": "5fc6f764-5b64-4a77-9590-0851c2c2565e",
+          "characterId": "91f57d44-d3a2-4ccf-95d1-c3d2c2070b10",
+          "role": "ヒロイン",
+          "note": ""
+        },
+        {
+          "id": "d0e02476-f64b-4d92-ab82-1fc1b1158fb0",
+          "characterId": "880c15d3-1a6a-49da-a0c7-d6d4fb7370d9",
+          "role": "クラスメイト",
+          "note": ""
+        }
+      ],
+      "createdAt": "2026-10-04T15:26:20.096Z",
+      "updatedAt": "2026-10-04T15:26:20.096Z"
+    },
+    {
+      "id": "65e2aae0-35e0-4a37-87e5-d57b58b9ce91",
+      "kind": "series",
+      "title": "中二病でも恋がしたい！戀",
+      "aliases": [
+        "戀",
+        "2期"
+      ],
+      "body": {
+        "blocks": []
+      },
+      "unit": "serial",
+      "characters": [],
+      "createdAt": "2026-10-04T15:26:20.096Z",
+      "updatedAt": "2026-10-04T15:26:20.096Z"
+    },
+    {
+      "id": "2d2cd9a1-5d12-48f3-b8f2-6e1118033874",
+      "kind": "series",
+      "title": "小鳥遊六花・改 〜劇場版 中二病でも恋がしたい！〜",
+      "aliases": [
+        "六花・改"
+      ],
+      "body": {
+        "blocks": []
+      },
+      "unit": "single",
+      "characters": [],
+      "createdAt": "2026-10-04T15:26:20.096Z",
+      "updatedAt": "2026-10-04T15:26:20.096Z"
+    },
+    {
+      "id": "568d3db1-0765-45bd-a50e-1cec72e8e7af",
+      "kind": "series",
+      "title": "映画 中二病でも恋がしたい！ -Take On Me-",
+      "aliases": [
+        "Take On Me"
+      ],
+      "body": {
+        "blocks": []
+      },
+      "unit": "single",
+      "characters": [],
+      "createdAt": "2026-10-04T15:26:20.096Z",
+      "updatedAt": "2026-10-04T15:26:20.096Z"
+    }
+  ],
+  "episodes": [
+    {
+      "id": "c454989b-6549-4c19-9be0-a480804164ed",
+      "kind": "episode",
+      "title": "邂逅の…邪王真眼",
+      "aliases": [],
+      "body": {
+        "blocks": [
+          {
+            "id": "b-e1-time",
+            "at": "02:10",
+            "writtenAt": "2026-10-01T21:02:40+09:00",
+            "runs": [
+              {
+                "text": "上の階からロープで降りてくるの、何回見ても笑う"
+              }
+            ]
+          },
+          {
+            "id": "b-e1-face",
+            "at": "02:25",
+            "writtenAt": "2026-10-01T21:03:05+09:00",
+            "runs": [
+              {
+                "text": "富樫勇太",
+                "pageId": "331408ae-da8e-467a-8a59-4defb4d8f3ea"
+              },
+              {
+                "text": "の「見ちゃいけないもの見た」顔ほんとすき"
+              }
+            ]
+          },
+          {
+            "id": "b-e1-pause",
+            "at": null,
+            "writtenAt": "2026-10-01T21:04:15+09:00",
+            "runs": [
+              {
+                "text": "止めて考えてるけど、"
+              },
+              {
+                "text": "小鳥遊六花",
+                "pageId": "91f57d44-d3a2-4ccf-95d1-c3d2c2070b10"
+              },
+              {
+                "text": "の台詞だけ芝居がかってて、まわりと温度違うのわざとだよね？"
+              }
+            ]
+          },
+          {
+            "id": "b-e1-eye",
+            "at": "11:10",
+            "writtenAt": "2026-10-01T21:14:05+09:00",
+            "runs": [
+              {
+                "text": "このカットの"
+              },
+              {
+                "text": "小鳥遊六花",
+                "pageId": "91f57d44-d3a2-4ccf-95d1-c3d2c2070b10"
+              },
+              {
+                "text": "の表情かわいすぎる！！！！！！！！！！"
+              }
+            ]
+          }
+        ]
+      },
+      "seriesId": "a29dadfd-fd03-4cc8-8f7d-e42afaf32b90",
+      "label": "第1話",
+      "sortKey": 10,
+      "airedOn": "2012-10-03",
+      "duration": null,
+      "appearances": [
+        {
+          "id": "5461e227-615d-4e56-be72-542febea3fc3",
+          "characterId": "331408ae-da8e-467a-8a59-4defb4d8f3ea",
+          "note": "見本では第1話の出演を二人に限っている"
+        },
+        {
+          "id": "104d799a-89bc-43a4-9abc-ed0807548a6e",
+          "characterId": "91f57d44-d3a2-4ccf-95d1-c3d2c2070b10",
+          "note": ""
+        }
+      ],
+      "createdAt": "2026-10-04T15:26:20.096Z",
+      "updatedAt": "2026-10-04T15:26:20.096Z"
+    },
+    {
+      "id": "574959c7-e7ad-44ef-9f33-165f2cece327",
+      "kind": "episode",
+      "title": "旋律の…聖調理人（プリーステス）",
+      "aliases": [],
+      "body": {
+        "blocks": []
+      },
+      "seriesId": "a29dadfd-fd03-4cc8-8f7d-e42afaf32b90",
+      "label": "第2話",
+      "sortKey": 20,
+      "airedOn": null,
+      "duration": null,
+      "appearances": [],
+      "createdAt": "2026-10-04T15:26:20.096Z",
+      "updatedAt": "2026-10-04T15:26:20.096Z"
+    },
+    {
+      "id": "56cc843d-47fa-47bf-ab9b-5a60bc89da52",
+      "kind": "episode",
+      "title": "終天の契約（エターナル・エンゲージ）",
+      "aliases": [],
+      "body": {
+        "blocks": []
+      },
+      "seriesId": "a29dadfd-fd03-4cc8-8f7d-e42afaf32b90",
+      "label": "最終話",
+      "sortKey": 120,
+      "airedOn": null,
+      "duration": null,
+      "appearances": [],
+      "createdAt": "2026-10-04T15:26:20.096Z",
+      "updatedAt": "2026-10-04T15:26:20.096Z"
+    },
+    {
+      "id": "3bc1f7b1-1a06-4ee4-a767-634525ab75ee",
+      "kind": "episode",
+      "title": "小鳥遊六花・改 〜劇場版 中二病でも恋がしたい！〜",
+      "aliases": [],
+      "body": {
+        "blocks": [
+          {
+            "id": "b-kai",
+            "at": null,
+            "writtenAt": null,
+            "runs": [
+              {
+                "text": "総集編。1期の話とは別ページ。シリーズ同士の前後は、1st には入れていない。"
+              }
+            ]
+          }
+        ]
+      },
+      "seriesId": "2d2cd9a1-5d12-48f3-b8f2-6e1118033874",
+      "label": "本編",
+      "sortKey": 10,
+      "airedOn": "2013-09-14",
+      "duration": null,
+      "appearances": [],
+      "createdAt": "2026-10-04T15:26:20.096Z",
+      "updatedAt": "2026-10-04T15:26:20.096Z"
+    },
+    {
+      "id": "250267c6-1966-402a-b93c-e4fef271923b",
+      "kind": "episode",
+      "title": "映画 中二病でも恋がしたい！ -Take On Me-",
+      "aliases": [],
+      "body": {
+        "blocks": [
+          {
+            "id": "b-tom",
+            "at": null,
+            "writtenAt": null,
+            "runs": [
+              {
+                "text": "劇場版はシリーズと話を分けず、この1ページに書く。"
+              }
+            ]
+          }
+        ]
+      },
+      "seriesId": "568d3db1-0765-45bd-a50e-1cec72e8e7af",
+      "label": "本編",
+      "sortKey": 10,
+      "airedOn": "2018-01-06",
+      "duration": null,
+      "appearances": [],
+      "createdAt": "2026-10-04T15:26:20.096Z",
+      "updatedAt": "2026-10-04T15:26:20.096Z"
+    }
+  ],
+  "characters": [
+    {
+      "id": "331408ae-da8e-467a-8a59-4defb4d8f3ea",
+      "kind": "character",
+      "title": "富樫勇太",
+      "aliases": [
+        "勇太"
+      ],
+      "body": {
+        "blocks": []
+      },
+      "createdAt": "2026-10-04T15:26:20.096Z",
+      "updatedAt": "2026-10-04T15:26:20.096Z"
+    },
+    {
+      "id": "91f57d44-d3a2-4ccf-95d1-c3d2c2070b10",
+      "kind": "character",
+      "title": "小鳥遊六花",
+      "aliases": [
+        "六花"
+      ],
+      "body": {
+        "blocks": []
+      },
+      "createdAt": "2026-10-04T15:26:20.096Z",
+      "updatedAt": "2026-10-04T15:26:20.096Z"
+    },
+    {
+      "id": "880c15d3-1a6a-49da-a0c7-d6d4fb7370d9",
+      "kind": "character",
+      "title": "丹生谷森夏",
+      "aliases": [
+        "森夏"
+      ],
+      "body": {
+        "blocks": []
+      },
+      "createdAt": "2026-10-04T15:26:20.096Z",
+      "updatedAt": "2026-10-04T15:26:20.096Z"
+    }
+  ]
+}

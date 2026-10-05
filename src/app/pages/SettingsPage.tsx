@@ -10,7 +10,7 @@ import {
 } from "../../model/storage.ts";
 import type { Database } from "../../model/types.ts";
 import type { ConflictView } from "../../sync/SyncController.ts";
-import { downloadText } from "../download.ts";
+import { downloadJson } from "../download.ts";
 import { kindLabel, pageName, pathOf } from "../paths.ts";
 import { useDatabase, useStore, useSync, useSyncState } from "../store.ts";
 
@@ -23,7 +23,7 @@ export function SettingsPage() {
   const [done, setDone] = useState<string | null>(null);
 
   const onExport = () => {
-    downloadText(`hash-watching-anime-${new Date().toISOString().slice(0, 10)}.json`, exportJson(db));
+    downloadJson("", exportJson(db));
   };
 
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -46,13 +46,14 @@ export function SettingsPage() {
     store.update((draft) => mergeImport(draft, pending.data));
     const { create } = pending.preview;
     setDone(
-      `読み込んだ。シリーズ ${pending.data.series.length}、話 ${pending.data.episodes.length}、キャラクター ${pending.data.characters.length}（うち新規 ${create.series + create.episodes + create.characters}）。`,
+      `読み込んだ。シリーズ ${pending.data.series.length}、シーズン ${pending.data.seasons.length}、話 ${pending.data.episodes.length}、キャラクター ${pending.data.characters.length}（うち新規 ${create.series + create.seasons + create.episodes + create.characters}）。`,
     );
     setPending(null);
   };
 
   const overwriteCount = pending
     ? pending.preview.overwrite.series.length +
+      pending.preview.overwrite.seasons.length +
       pending.preview.overwrite.episodes.length +
       pending.preview.overwrite.characters.length
     : 0;
@@ -88,12 +89,13 @@ export function SettingsPage() {
         {pending ? (
           <div className="mt-4 rounded-lg border border-line bg-surface p-4 text-sm">
             <p>
-              新しく足す: シリーズ {pending.preview.create.series}、話 {pending.preview.create.episodes}、キャラクター {pending.preview.create.characters}
+              新しく足す: シリーズ {pending.preview.create.series}、シーズン {pending.preview.create.seasons}、話 {pending.preview.create.episodes}、キャラクター {pending.preview.create.characters}
             </p>
             {overwriteCount > 0 ? (
               <div className="mt-2 text-danger">
                 <p>置き換える: {overwriteCount} ページ</p>
                 <OverwriteList title="シリーズ" names={pending.preview.overwrite.series} />
+                <OverwriteList title="シーズン" names={pending.preview.overwrite.seasons} />
                 <OverwriteList title="話" names={pending.preview.overwrite.episodes} />
                 <OverwriteList title="キャラクター" names={pending.preview.overwrite.characters} />
               </div>
@@ -119,6 +121,13 @@ export function SettingsPage() {
             <li key={key}>{key}</li>
           ))}
         </ul>
+        <button
+          type="button"
+          onClick={() => downloadJson("raw", store.dumpRaw())}
+          className="btn btn-sm mt-3"
+        >
+          保存してあるデータをそのまま書き出す
+        </button>
       </section>
     </div>
   );
@@ -209,8 +218,7 @@ function ConflictRow({ conflict }: { conflict: ConflictView }) {
   const download = (side: "local" | "remote") => {
     const text = sync.conflictFile(conflict.id, side);
     if (!text) return;
-    const fileName = `${name.replace(/[\\/:*?"<>|]/g, "_")}-${side === "local" ? "手元" : "ドライブ"}.json`;
-    downloadText(fileName, text);
+    downloadJson(`${name.replace(/[\\/:*?"<>|]/g, "_")}-${side === "local" ? "手元" : "ドライブ"}`, text);
   };
   return (
     <li className="py-3">

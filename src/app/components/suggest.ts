@@ -2,14 +2,18 @@ import type { KeyboardEvent } from "react";
 import type { Page } from "../../model/types.ts";
 
 export type SuggestOption =
-  | { type: "page"; page: Page; hint?: string }
+  /** name は一覧に出す名前。無ければページ名。別名で当たったときに別名を出す */
+  | { type: "page"; page: Page; hint?: string; name?: string }
   | { type: "create"; text: string };
 
 export function optionKey(option: SuggestOption): string {
   return option.type === "page" ? option.page.id : `create:${option.text}`;
 }
 
-/** 上下で選び、Enter か Tab で決める。IME の変換中は触らない */
+/**
+ * 上下で選び、Enter か Tab で決める。IME の変換中は触らない。
+ * active が -1 なら何も選んでいない。Enter と Tab は拾わず、フォームの送信に任せる
+ */
 export function handleSuggestKey(
   event: KeyboardEvent,
   state: {
@@ -25,7 +29,9 @@ export function handleSuggestKey(
   if (event.key === "ArrowDown") {
     state.setActive((active + 1) % options.length);
   } else if (event.key === "ArrowUp") {
-    state.setActive((active - 1 + options.length) % options.length);
+    state.setActive(active < 0 ? options.length - 1 : (active - 1 + options.length) % options.length);
+  } else if ((event.key === "Enter" || event.key === "Tab") && active < 0) {
+    return false;
   } else if (event.key === "Enter" || event.key === "Tab") {
     state.pick(options[Math.min(active, options.length - 1)]);
   } else if (event.key === "Escape") {

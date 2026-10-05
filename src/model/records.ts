@@ -7,9 +7,11 @@ import type {
   MemoBlock,
   MemoBody,
   Page,
+  Season,
+  SeasonCharacter,
+  SeasonUnit,
   Series,
-  SeriesCharacter,
-  SeriesUnit,
+  SeriesSeason,
 } from "./types.ts";
 
 /**
@@ -22,17 +24,12 @@ function now(): string {
 }
 
 export function emptyDatabase(): Database {
-  return { series: [], episodes: [], characters: [], deleted: [] };
+  return { series: [], seasons: [], episodes: [], characters: [], deleted: [] };
 }
 
 export function createSeries(
   db: Database,
-  input: {
-    title: string;
-    aliases?: string[];
-    unit: SeriesUnit;
-    blocks?: MemoBlock[];
-  },
+  input: { title: string; aliases?: string[]; blocks?: MemoBlock[] },
 ): Series {
   const stamp = now();
   const title = input.title.trim();
@@ -42,8 +39,7 @@ export function createSeries(
     title,
     aliases: cleanAliases(title, input.aliases ?? []),
     body: { blocks: input.blocks ?? [] },
-    unit: input.unit,
-    characters: [],
+    seasons: [],
     createdAt: stamp,
     updatedAt: stamp,
   };
@@ -51,10 +47,36 @@ export function createSeries(
   return series;
 }
 
+export function createSeason(
+  db: Database,
+  input: {
+    title: string;
+    aliases?: string[];
+    unit: SeasonUnit;
+    blocks?: MemoBlock[];
+  },
+): Season {
+  const stamp = now();
+  const title = input.title.trim();
+  const season: Season = {
+    id: crypto.randomUUID(),
+    kind: "season",
+    title,
+    aliases: cleanAliases(title, input.aliases ?? []),
+    body: { blocks: input.blocks ?? [] },
+    unit: input.unit,
+    characters: [],
+    createdAt: stamp,
+    updatedAt: stamp,
+  };
+  db.seasons.push(season);
+  return season;
+}
+
 export function createEpisode(
   db: Database,
   input: {
-    seriesId: string;
+    seasonId: string;
     title: string;
     label: string;
     sortKey?: number;
@@ -62,7 +84,7 @@ export function createEpisode(
     blocks?: MemoBlock[];
   },
 ): Episode {
-  mustFind(db.series, input.seriesId);
+  mustFind(db.seasons, input.seasonId);
   const stamp = now();
   const episode: Episode = {
     id: crypto.randomUUID(),
@@ -70,10 +92,11 @@ export function createEpisode(
     title: input.title.trim(),
     aliases: [],
     body: { blocks: input.blocks ?? [] },
-    seriesId: input.seriesId,
+    seasonId: input.seasonId,
     label: input.label.trim(),
-    sortKey: input.sortKey ?? nextSortKey(db, input.seriesId),
+    sortKey: input.sortKey ?? nextSortKey(db, input.seasonId),
     airedOn: input.airedOn,
+    duration: null,
     appearances: [],
     createdAt: stamp,
     updatedAt: stamp,
@@ -101,50 +124,105 @@ export function createCharacter(
   return character;
 }
 
-/** 同じシリーズの最後の話の sortKey に 10 を足す */
-export function nextSortKey(db: Database, seriesId: string): number {
+/** 同じシーズンの最後の話の sortKey に 10 を足す */
+export function nextSortKey(db: Database, seasonId: string): number {
   const keys = db.episodes
-    .filter((item) => item.seriesId === seriesId)
+    .filter((item) => item.seasonId === seasonId)
     .map((item) => item.sortKey);
   return keys.length === 0 ? 10 : Math.max(...keys) + 10;
 }
 
-export function addSeriesCharacter(
+export function addSeasonCharacter(
   db: Database,
-  seriesId: string,
+  seasonId: string,
   input: { characterId: string; role: string; note?: string },
-): SeriesCharacter {
-  const series = mustFind(db.series, seriesId);
-  const row: SeriesCharacter = {
+): SeasonCharacter {
+  const season = mustFind(db.seasons, seasonId);
+  const row: SeasonCharacter = {
     id: crypto.randomUUID(),
     characterId: input.characterId,
     role: input.role,
     note: input.note ?? "",
   };
-  series.characters.push(row);
+  season.characters.push(row);
+  touch(season);
+  return row;
+}
+
+export function updateSeasonCharacter(
+  db: Database,
+  seasonId: string,
+  rowId: string,
+  patch: { role?: string; note?: string },
+): void {
+  const season = mustFind(db.seasons, seasonId);
+  const row = mustFind(season.characters, rowId);
+  Object.assign(row, patch);
+  touch(season);
+}
+
+export function removeSeasonCharacter(
+  db: Database,
+  seasonId: string,
+  rowId: string,
+): void {
+  const season = mustFind(db.seasons, seasonId);
+  season.characters = season.characters.filter((item) => item.id !== rowId);
+  touch(season);
+}
+
+/** シリーズの並びの最後に足す。同じシリーズにもう入っていれば、その行を返す */
+export function addSeriesSeason(
+  db: Database,
+  seriesId: string,
+  input: { seasonId: string; note?: string },
+): SeriesSeason {
+  const series = mustFind(db.series, seriesId);
+  mustFind(db.seasons, input.seasonId);
+  const existing = series.seasons.find((item) => item.seasonId === input.seasonId);
+  if (existing) return existing;
+  const row: SeriesSeason = {
+    id: crypto.randomUUID(),
+    seasonId: input.seasonId,
+    note: input.note ?? "",
+  };
+  series.seasons.push(row);
   touch(series);
   return row;
 }
 
-export function updateSeriesCharacter(
+export function updateSeriesSeason(
   db: Database,
   seriesId: string,
   rowId: string,
-  patch: { role?: string; note?: string },
+  patch: { note: string },
 ): void {
   const series = mustFind(db.series, seriesId);
-  const row = mustFind(series.characters, rowId);
-  Object.assign(row, patch);
+  const row = mustFind(series.seasons, rowId);
+  row.note = patch.note;
   touch(series);
 }
 
-export function removeSeriesCharacter(
+export function removeSeriesSeason(db: Database, seriesId: string, rowId: string): void {
+  const series = mustFind(db.series, seriesId);
+  series.seasons = series.seasons.filter((item) => item.id !== rowId);
+  touch(series);
+}
+
+/** シリーズの並びで、隣のシーズンと入れ替える */
+export function moveSeriesSeason(
   db: Database,
   seriesId: string,
   rowId: string,
+  direction: -1 | 1,
 ): void {
   const series = mustFind(db.series, seriesId);
-  series.characters = series.characters.filter((item) => item.id !== rowId);
+  const index = series.seasons.findIndex((item) => item.id === rowId);
+  const other = index + direction;
+  if (index === -1 || other < 0 || other >= series.seasons.length) return;
+  const rows = [...series.seasons];
+  [rows[index], rows[other]] = [rows[other], rows[index]];
+  series.seasons = rows;
   touch(series);
 }
 
@@ -189,12 +267,22 @@ export function removeAppearance(
 export function updateSeries(
   db: Database,
   seriesId: string,
-  patch: { title?: string; aliases?: string[]; unit?: SeriesUnit },
+  patch: { title?: string; aliases?: string[] },
 ): void {
   const series = mustFind(db.series, seriesId);
   applyPageFields(series, patch);
-  if (patch.unit) series.unit = patch.unit;
   touch(series);
+}
+
+export function updateSeason(
+  db: Database,
+  seasonId: string,
+  patch: { title?: string; aliases?: string[]; unit?: SeasonUnit },
+): void {
+  const season = mustFind(db.seasons, seasonId);
+  applyPageFields(season, patch);
+  if (patch.unit) season.unit = patch.unit;
+  touch(season);
 }
 
 export function updateEpisode(
@@ -205,12 +293,14 @@ export function updateEpisode(
     aliases?: string[];
     label?: string;
     airedOn?: string | null;
+    duration?: number | null;
   },
 ): void {
   const episode = mustFind(db.episodes, episodeId);
   applyPageFields(episode, patch);
   if (patch.label !== undefined) episode.label = patch.label.trim();
   if (patch.airedOn !== undefined) episode.airedOn = patch.airedOn;
+  if (patch.duration !== undefined) episode.duration = patch.duration;
   touch(episode);
 }
 
@@ -230,7 +320,7 @@ export function setBody(db: Database, pageId: string, body: MemoBody): void {
   touch(page);
 }
 
-/** 同じシリーズで隣の話と sortKey を入れ替える */
+/** 同じシーズンで隣の話と sortKey を入れ替える */
 export function moveEpisode(
   db: Database,
   episodeId: string,
@@ -238,7 +328,7 @@ export function moveEpisode(
 ): void {
   const episode = mustFind(db.episodes, episodeId);
   const siblings = db.episodes
-    .filter((item) => item.seriesId === episode.seriesId)
+    .filter((item) => item.seasonId === episode.seasonId)
     .sort((a, b) => a.sortKey - b.sortKey);
   const index = siblings.indexOf(episode);
   const other = siblings[index + direction];
@@ -248,16 +338,27 @@ export function moveEpisode(
   touch(other);
 }
 
-/** 話は seriesId が無いと開けないので、シリーズと一緒に消す */
-export function deleteSeries(db: Database, seriesId: string): void {
-  const series = mustFind(db.series, seriesId);
+/** 話は seasonId が無いと開けないので、シーズンと一緒に消す */
+export function deleteSeason(db: Database, seasonId: string): void {
+  const season = mustFind(db.seasons, seasonId);
   const stamp = now();
-  markDeleted(db, series, stamp);
+  markDeleted(db, season, stamp);
   for (const episode of db.episodes) {
-    if (episode.seriesId === seriesId) markDeleted(db, episode, stamp);
+    if (episode.seasonId === seasonId) markDeleted(db, episode, stamp);
   }
+  db.seasons = db.seasons.filter((item) => item.id !== seasonId);
+  db.episodes = db.episodes.filter((item) => item.seasonId !== seasonId);
+  for (const series of db.series) {
+    if (!series.seasons.some((item) => item.seasonId === seasonId)) continue;
+    series.seasons = series.seasons.filter((item) => item.seasonId !== seasonId);
+    touch(series);
+  }
+}
+
+/** シリーズは束ねるだけの器なので、消してもシーズンは残す */
+export function deleteSeries(db: Database, seriesId: string): void {
+  markDeleted(db, mustFind(db.series, seriesId), now());
   db.series = db.series.filter((item) => item.id !== seriesId);
-  db.episodes = db.episodes.filter((item) => item.seriesId !== seriesId);
 }
 
 export function deleteEpisode(db: Database, episodeId: string): void {
@@ -272,12 +373,12 @@ export function deleteEpisode(db: Database, episodeId: string): void {
 export function deleteCharacter(db: Database, characterId: string): void {
   markDeleted(db, mustFind(db.characters, characterId), now());
   db.characters = db.characters.filter((item) => item.id !== characterId);
-  // 行を外したシリーズと話も直したことにする。同期で、外す前の版に負けないように
-  for (const series of db.series) {
-    const rows = series.characters.filter((item) => item.characterId !== characterId);
-    if (rows.length === series.characters.length) continue;
-    series.characters = rows;
-    touch(series);
+  // 行を外したシーズンと話も直したことにする。同期で、外す前の版に負けないように
+  for (const season of db.seasons) {
+    const rows = season.characters.filter((item) => item.characterId !== characterId);
+    if (rows.length === season.characters.length) continue;
+    season.characters = rows;
+    touch(season);
   }
   for (const episode of db.episodes) {
     const rows = episode.appearances.filter((item) => item.characterId !== characterId);
@@ -329,6 +430,7 @@ function touch(page: Page): void {
 function mustFindPage(db: Database, id: string): Page {
   const page =
     db.series.find((item) => item.id === id) ??
+    db.seasons.find((item) => item.id === id) ??
     db.episodes.find((item) => item.id === id) ??
     db.characters.find((item) => item.id === id);
   if (!page) throw new Error(`${id} が見つからない`);

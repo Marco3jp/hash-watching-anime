@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createSeries, emptyDatabase, updateSeries } from "../model/records.ts";
+import { createSeason, emptyDatabase, updateSeason } from "../model/records.ts";
 import { PageStore, exportJson, parseExport, type StorageLike } from "../model/storage.ts";
 import { DriveAuthError, DriveChangedError, type Drive, type DriveFile } from "./drive.ts";
 import type { Auth } from "./googleAuth.ts";
@@ -58,7 +58,7 @@ function device(drive: Drive, storage = new MemoryStorage()) {
 
 function titles(text: string) {
   return parseExport(text)
-    .series.map((item) => item.title)
+    .seasons.map((item) => item.title)
     .sort();
 }
 
@@ -74,7 +74,7 @@ describe("SyncController", () => {
   it("ドライブにファイルが無ければ、手元を上げる。トークンも保存する", async () => {
     const drive = new FakeDrive();
     const a = device(drive);
-    a.store.update((db) => createSeries(db, { title: "作品", unit: "serial" }));
+    a.store.update((db) => createSeason(db, { title: "作品", unit: "serial" }));
     await a.sync.connect();
     expect(a.sync.getSnapshot().status).toBe("synced");
     expect(titles(drive.file!.text)).toEqual(["作品"]);
@@ -88,21 +88,21 @@ describe("SyncController", () => {
     const drive = new FakeDrive();
     const a = device(drive);
     const b = device(drive);
-    const series = a.store.update((db) => createSeries(db, { title: "A の作品", unit: "serial" }));
+    const series = a.store.update((db) => createSeason(db, { title: "A の作品", unit: "serial" }));
     await a.sync.connect();
 
     vi.setSystemTime(new Date("2026-10-02T00:01:00Z"));
-    b.store.update((db) => createSeries(db, { title: "B の作品", unit: "serial" }));
+    b.store.update((db) => createSeason(db, { title: "B の作品", unit: "serial" }));
     await b.sync.connect();
-    expect(b.store.getSnapshot().series.map((item) => item.title).sort()).toEqual([
+    expect(b.store.getSnapshot().seasons.map((item) => item.title).sort()).toEqual([
       "A の作品",
       "B の作品",
     ]);
 
     vi.setSystemTime(new Date("2026-10-02T00:02:00Z"));
-    a.store.update((db) => updateSeries(db, series.id, { title: "A の作品（直した）" }));
+    a.store.update((db) => updateSeason(db, series.id, { title: "A の作品（直した）" }));
     await vi.advanceTimersByTimeAsync(1000);
-    expect(a.store.getSnapshot().series.map((item) => item.title).sort()).toEqual([
+    expect(a.store.getSnapshot().seasons.map((item) => item.title).sort()).toEqual([
       "A の作品（直した）",
       "B の作品",
     ]);
@@ -112,7 +112,7 @@ describe("SyncController", () => {
   it("ドライブと手元が同じなら上げない", async () => {
     const drive = new FakeDrive();
     const db = emptyDatabase();
-    createSeries(db, { title: "作品", unit: "serial" });
+    createSeason(db, { title: "作品", unit: "serial" });
     drive.put(exportJson(db));
     const writes = drive.writes;
     const a = device(drive);
@@ -126,10 +126,10 @@ describe("SyncController", () => {
     const drive = new FakeDrive();
     const a = device(drive);
     await a.sync.connect();
-    const series = a.store.update((db) => createSeries(db, { title: "作品", unit: "serial" }));
+    const series = a.store.update((db) => createSeason(db, { title: "作品", unit: "serial" }));
     const writes = drive.writes;
     for (const title of ["作", "作品", "作品だ"]) {
-      a.store.update((db) => updateSeries(db, series.id, { title }));
+      a.store.update((db) => updateSeason(db, series.id, { title }));
       await vi.advanceTimersByTimeAsync(500);
     }
     expect(drive.writes).toBe(writes);
@@ -147,7 +147,7 @@ describe("SyncController", () => {
     expect(JSON.parse(a.storage.getItem(syncSettingsKey)!).token).toBeNull();
 
     drive.expired = false;
-    a.store.update((db) => createSeries(db, { title: "作品", unit: "serial" }));
+    a.store.update((db) => createSeason(db, { title: "作品", unit: "serial" }));
     await vi.advanceTimersByTimeAsync(5000);
     expect(titles(drive.file!.text)).toEqual([]);
     await a.sync.connect();
@@ -158,7 +158,7 @@ describe("SyncController", () => {
     const drive = new FakeDrive();
     const a = device(drive);
     await a.sync.connect();
-    a.store.update((db) => createSeries(db, { title: "作品", unit: "serial" }));
+    a.store.update((db) => createSeason(db, { title: "作品", unit: "serial" }));
     a.sync.dispose();
 
     const reopened = device(drive, a.storage);
@@ -186,7 +186,7 @@ describe("SyncController", () => {
     await a.sync.connect();
     const writes = drive.writes;
     a.sync.disconnect();
-    a.store.update((db) => createSeries(db, { title: "作品", unit: "serial" }));
+    a.store.update((db) => createSeason(db, { title: "作品", unit: "serial" }));
     await vi.advanceTimersByTimeAsync(5000);
     expect(drive.writes).toBe(writes);
     expect(a.sync.getSnapshot()).toMatchObject({ status: "off", lastSyncedAt: null, tokenExpiresAt: null });
@@ -212,11 +212,11 @@ describe("SyncController", () => {
     const b = device(drive);
     await a.sync.connect();
     await b.sync.connect();
-    b.store.update((db) => createSeries(db, { title: "B の作品", unit: "serial" }));
-    a.store.update((db) => createSeries(db, { title: "A の作品", unit: "serial" }));
+    b.store.update((db) => createSeason(db, { title: "B の作品", unit: "serial" }));
+    a.store.update((db) => createSeason(db, { title: "A の作品", unit: "serial" }));
     drive.beforeWrite = () => {
       const other = parseExport(drive.file!.text);
-      other.series.push(...b.store.getSnapshot().series);
+      other.seasons.push(...b.store.getSnapshot().seasons);
       drive.put(exportJson(other));
     };
     await a.sync.syncNow();
@@ -228,15 +228,15 @@ describe("SyncController", () => {
       const drive = new FakeDrive();
       const a = device(drive);
       const b = device(drive);
-      const series = a.store.update((db) => createSeries(db, { title: "作品", unit: "serial" }));
+      const series = a.store.update((db) => createSeason(db, { title: "作品", unit: "serial" }));
       await a.sync.connect();
       await b.sync.connect();
 
       vi.setSystemTime(new Date("2026-10-02T00:01:00Z"));
-      a.store.update((db) => updateSeries(db, series.id, { title: "A で直した" }));
+      a.store.update((db) => updateSeason(db, series.id, { title: "A で直した" }));
       await a.sync.syncNow();
       vi.setSystemTime(new Date("2026-10-02T00:01:30Z"));
-      b.store.update((db) => updateSeries(db, series.id, { title: "B で直した" }));
+      b.store.update((db) => updateSeason(db, series.id, { title: "B で直した" }));
       await b.sync.syncNow();
       return { drive, a, b, series };
     }
@@ -244,9 +244,9 @@ describe("SyncController", () => {
     it("両方で直したページは競合にして、手元もドライブも書き換えない", async () => {
       const { drive, b, series } = await conflicted();
       expect(b.sync.getSnapshot().conflicts).toMatchObject([
-        { id: series.id, kind: "series", local: { title: "B で直した" }, remote: { title: "A で直した" } },
+        { id: series.id, kind: "season", local: { title: "B で直した" }, remote: { title: "A で直した" } },
       ]);
-      expect(b.store.getSnapshot().series[0].title).toBe("B で直した");
+      expect(b.store.getSnapshot().seasons[0].title).toBe("B で直した");
       expect(titles(drive.file!.text)).toEqual(["A で直した"]);
     });
 
@@ -276,7 +276,7 @@ describe("SyncController", () => {
 
       // A は直していないので、そのまま B の版を受け取る
       await a.sync.syncNow();
-      expect(a.store.getSnapshot().series[0].title).toBe("B で直した");
+      expect(a.store.getSnapshot().seasons[0].title).toBe("B で直した");
       expect(a.sync.getSnapshot().conflicts).toEqual([]);
     });
 
@@ -284,7 +284,7 @@ describe("SyncController", () => {
       const { a, b, series } = await conflicted();
       b.sync.conflictFile(series.id, "remote");
       vi.setSystemTime(new Date("2026-10-02T00:02:00Z"));
-      a.store.update((db) => updateSeries(db, series.id, { title: "A でもう一度" }));
+      a.store.update((db) => updateSeason(db, series.id, { title: "A でもう一度" }));
       await a.sync.syncNow();
       await b.sync.syncNow();
       expect(b.sync.getSnapshot().conflicts[0]).toMatchObject({

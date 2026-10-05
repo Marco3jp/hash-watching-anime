@@ -1,8 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { pagesOf } from "../model/views.ts";
 import { tokenMarginMs } from "../sync/SyncController.ts";
-import { paths } from "./paths.ts";
-import { useSync, useSyncState } from "./store.ts";
+import { JumpSuggest } from "./components/JumpSuggest.tsx";
+import { BrokenStorage } from "./components/Recovery.tsx";
+import { paths, hashName } from "./paths.ts";
+import { useDatabase, useStoreStatus, useSync, useSyncState } from "./store.ts";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `shrink-0 font-medium ${isActive ? "text-theme-dark" : "text-theme hover:text-theme-dark"}`;
@@ -10,6 +13,8 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 export function Layout() {
   const navigate = useNavigate();
   const sync = useSync();
+  const db = useDatabase();
+  const status = useStoreStatus();
   const [text, setText] = useState("");
 
   const onSearch = (event: FormEvent) => {
@@ -51,12 +56,18 @@ export function Layout() {
           >
             <SyncBadge />
             <AuthStatus />
-            <input
+            <JumpSuggest
               type="search"
               aria-label="検索"
               value={text}
-              onChange={(event) => setText(event.target.value)}
-              className="field min-w-0 flex-1 sm:w-60 sm:flex-none"
+              onChange={setText}
+              pages={pagesOf(db)}
+              hintOf={(page) => {
+                if (page.kind !== "episode") return undefined;
+                const season = db.seasons.find((item) => item.id === page.seasonId);
+                return season ? hashName(season) : undefined;
+              }}
+              className="flex-1 sm:w-60 sm:flex-none"
             />
             <button type="submit" className="btn">
               探す
@@ -65,7 +76,7 @@ export function Layout() {
         </div>
       </header>
       <main className="mx-auto box-border w-full max-w-6xl flex-1 px-4 pt-8 pb-24">
-        <Outlet />
+        {status.kind === "broken" ? <BrokenStorage message={status.message} /> : <Outlet />}
       </main>
     </div>
   );

@@ -1,16 +1,32 @@
 import { normalizeBlock } from "./body.ts";
-import type { Character, Database, Deletion, Episode, Page, Series } from "./types.ts";
+import {
+  allStorageKeys,
+  collectionsByVersion,
+  currentVersion,
+  migrate,
+  steps,
+  storageKeyOf,
+  type MigrationStep,
+  type VersionedData,
+} from "./migrate.ts";
+import type { Character, Database, Deletion, Episode, Page, Season, Series } from "./types.ts";
 
 /**
  * 保存先は LocalStorage。Sparkling Journey と同じく、種類ごとに1キーへ配列を置く。
  * 公開先が同じ marco3jp.github.io なので、キーにはプロジェクト名を付けて分ける。
+ * キーの末尾は版。版を上げたら新しいキーへ書き、前の版のキーは消さずに残す。
  */
-export const storageKeys = {
-  series: "hash-watching-anime:series:v1",
-  episodes: "hash-watching-anime:episodes:v1",
-  characters: "hash-watching-anime:characters:v1",
-  deleted: "hash-watching-anime:deleted:v1",
-} as const;
+const collections = ["series", "seasons", "episodes", "characters", "deleted"] as const;
+
+type Collection = (typeof collections)[number];
+
+export const storageKeys = Object.fromEntries(
+  collections.map((name) => [name, storageKeyOf(name, currentVersion)]),
+) as Record<Collection, string>;
+
+function emptyDb(): Database {
+  return { series: [], seasons: [], episodes: [], characters: [], deleted: [] };
+}
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -18,25 +34,133 @@ export interface StorageLike {
   removeItem(key: string): void;
 }
 
+/**
+ * 読めたか。読めないときは、空の Database を見せるが書き込まない。
+ * 空のまま書くと、読めなかったデータを上書きして消すため。
+ */
+export type StoreStatus =
+  | { kind: "ok"; migratedFrom: number | null }
+  | { kind: "broken"; message: string; keys: string[] };
+
+/** 読めないときの keys は、読めなかったキー。移せなかったときは、その版の全キー */
+export type ReadResult =
+  | { ok: true; db: Database; migratedFrom: number | null }
+  | { ok: false; message: string; keys: string[] };
+
+/**
+ * 今の版のキーから読む。今の版のキーが1つも無ければ、前の版のキーを新しい方から探して移す。
+ * JSON として読めない、配列でない、移せないときは ok: false。
+ */
+export interface Schema {
+  current: number;
+  collections: Record<number, readonly string[]>;
+  steps: Record<number, MigrationStep>;
+}
+
+const schema: Schema = { current: currentVersion, collections: collectionsByVersion, steps };
+
+export function readStorage(
+  storage: Pick<StorageLike, "getItem">,
+  { current, collections: byVersion, steps: chain }: Schema = schema,
+): ReadResult {
+  for (let version = current; version >= 1; version -= 1) {
+    const collections = byVersion[version] ?? [];
+    const raws = collections.map((name) => storage.getItem(storageKeyOf(name, version)));
+    if (raws.every((raw) => raw === null)) continue;
+    const data: VersionedData = {};
+    const problems: { key: string; message: string }[] = [];
+    for (const [index, name] of collections.entries()) {
+      const raw = raws[index];
+      const key = storageKeyOf(name, version);
+      if (raw === null) {
+        data[name] = [];
+        continue;
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        problems.push({ key, message: `${key} を JSON として読めない` });
+        continue;
+      }
+      if (!Array.isArray(parsed)) {
+        problems.push({ key, message: `${key} が配列ではない` });
+        continue;
+      }
+      data[name] = parsed;
+    }
+    if (problems.length > 0) {
+      return {
+        ok: false,
+        message: problems.map((problem) => problem.message).join("\n"),
+        keys: problems.map((problem) => problem.key),
+      };
+    }
+    try {
+      const db = toDatabase(migrate(version, data, { steps: chain, target: current }));
+      return { ok: true, db, migratedFrom: version < current ? version : null };
+    } catch (caught) {
+      return {
+        ok: false,
+        message: `版 ${version} のデータを読めない: ${(caught as Error).message}`,
+        keys: collections.map((name) => storageKeyOf(name, version)),
+      };
+    }
+  }
+  return { ok: true, db: emptyDb(), migratedFrom: null };
+}
+
+/** 前の版も含めて、保存してある文字列をそのまま集める。読めないデータも、そのまま持ち出せる */
+export interface RawDump {
+  app: "hash-watching-anime";
+  raw: Record<string, string>;
+  exportedAt: string;
+}
+
+export function dumpRaw(storage: Pick<StorageLike, "getItem">): string {
+  const raw: Record<string, string> = {};
+  for (const key of allStorageKeys()) {
+    const value = storage.getItem(key);
+    if (value !== null) raw[key] = value;
+  }
+  const dump: RawDump = { app: "hash-watching-anime", raw, exportedAt: new Date().toISOString() };
+  return JSON.stringify(dump, null, 2);
+}
+
 export class PageStore {
   private storage: StorageLike;
   private snapshot: Database;
+  private status: StoreStatus;
   private listeners = new Set<() => void>();
 
   constructor(storage: StorageLike) {
     this.storage = storage;
-    this.snapshot = this.read();
+    const result = readStorage(storage);
+    if (result.ok) {
+      this.snapshot = result.db;
+      this.status = { kind: "ok", migratedFrom: result.migratedFrom };
+      // 前の版から移したら、今の版のキーへ書いておく。前の版のキーは残す
+      if (result.migratedFrom !== null) this.write(result.db);
+    } else {
+      this.snapshot = emptyDb();
+      this.status = { kind: "broken", message: result.message, keys: result.keys };
+    }
   }
 
   getSnapshot = (): Database => this.snapshot;
+
+  getStatus = (): StoreStatus => this.status;
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   };
 
-  /** 複製に対して書き換え、全キーを書き直す */
+  /** 複製に対して書き換え、全キーを書き直す。読めなかったときは書かない */
   update<T>(change: (db: Database) => T): T {
+    if (this.status.kind === "broken") {
+      throw new Error("保存したデータを読めなかったので、書き込まない");
+    }
     const next = structuredClone(this.snapshot);
     const result = change(next);
     this.write(next);
@@ -45,8 +169,11 @@ export class PageStore {
     return result;
   }
 
-  /** 同期で合流した Database に差し替える */
+  /** 同期で合わせた Database に差し替える。読めなかったときは書かない */
   replace(next: Database): void {
+    if (this.status.kind === "broken") {
+      throw new Error("保存したデータを読めなかったので、書き込まない");
+    }
     this.write(next);
     this.snapshot = next;
     this.emit();
@@ -54,35 +181,36 @@ export class PageStore {
 
   /** 別のタブが書いたときに読み直す */
   reload(): void {
-    this.snapshot = this.read();
+    const result = readStorage(this.storage);
+    if (result.ok) {
+      this.snapshot = result.db;
+      this.status = { kind: "ok", migratedFrom: result.migratedFrom };
+    } else {
+      this.snapshot = emptyDb();
+      this.status = { kind: "broken", message: result.message, keys: result.keys };
+    }
     this.emit();
   }
 
-  private read(): Database {
-    return normalizeDatabase({
-      series: this.readArray<Series>(storageKeys.series),
-      episodes: this.readArray<Episode>(storageKeys.episodes),
-      characters: this.readArray<Character>(storageKeys.characters),
-      deleted: this.readArray<Deletion>(storageKeys.deleted),
-    });
+  /** 保存してある文字列をそのまま。前の版のキーも含む */
+  dumpRaw(): string {
+    return dumpRaw(this.storage);
   }
 
-  private readArray<T>(key: string): T[] {
-    const raw = this.storage.getItem(key);
-    if (!raw) return [];
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
-    } catch {
-      return [];
-    }
+  /**
+   * 読めなかったキーだけを外し、読み直す。読めたキーは残す。
+   * 先に dumpRaw で持ち出してから呼ぶ。
+   */
+  discardBroken(): void {
+    if (this.status.kind !== "broken") return;
+    for (const key of this.status.keys) this.storage.removeItem(key);
+    this.reload();
+    const status = this.getStatus();
+    if (status.kind === "ok" && status.migratedFrom !== null) this.write(this.snapshot);
   }
 
   private write(db: Database): void {
-    this.storage.setItem(storageKeys.series, JSON.stringify(db.series));
-    this.storage.setItem(storageKeys.episodes, JSON.stringify(db.episodes));
-    this.storage.setItem(storageKeys.characters, JSON.stringify(db.characters));
-    this.storage.setItem(storageKeys.deleted, JSON.stringify(db.deleted));
+    for (const name of collections) this.storage.setItem(storageKeys[name], JSON.stringify(db[name]));
   }
 
   private emit(): void {
@@ -90,17 +218,17 @@ export class PageStore {
   }
 }
 
-/** deleted は後から足した。無い JSON も同じ版として読む */
 export interface ExportPayload extends Database {
-  version: 1;
+  version: number;
   exportedAt: string;
 }
 
 export function exportJson(db: Database): string {
   const payload: ExportPayload = {
-    version: 1,
+    version: currentVersion,
     exportedAt: new Date().toISOString(),
     series: db.series,
+    seasons: db.seasons,
     episodes: db.episodes,
     characters: db.characters,
     deleted: db.deleted,
@@ -108,35 +236,64 @@ export function exportJson(db: Database): string {
   return JSON.stringify(payload, null, 2);
 }
 
+/**
+ * 書き出した JSON を読む。前の版で書き出したものは今の版へ移す。
+ * dumpRaw で持ち出した JSON も読める。LocalStorage から読むのと同じ手順で読む。
+ */
 export function parseExport(json: string): Database {
   const raw = JSON.parse(json) as unknown;
-  if (!raw || typeof raw !== "object" || (raw as { version?: unknown }).version !== 1) {
-    throw new Error("書き出した JSON ではないか、版が違う");
+  if (!raw || typeof raw !== "object") throw new Error("書き出した JSON ではない");
+  const object = raw as Record<string, unknown>;
+
+  if (object.app === "hash-watching-anime" && object.raw && typeof object.raw === "object") {
+    const entries = object.raw as Record<string, unknown>;
+    const result = readStorage({
+      getItem: (key) => (typeof entries[key] === "string" ? (entries[key] as string) : null),
+    });
+    if (!result.ok) throw new Error(result.message);
+    return result.db;
   }
-  const payload = raw as Partial<ExportPayload>;
-  if (
-    !Array.isArray(payload.series) ||
-    !Array.isArray(payload.episodes) ||
-    !Array.isArray(payload.characters)
-  ) {
-    throw new Error("series、episodes、characters が配列ではない");
+
+  const version = object.version;
+  if (typeof version !== "number") throw new Error("書き出した JSON ではないか、版が無い");
+  const collections = collectionsByVersion[version];
+  if (!collections) {
+    throw new Error(
+      version > currentVersion
+        ? `版 ${version} は、このアプリより新しい版で書き出した JSON`
+        : `版 ${version} は読めない`,
+    );
   }
+  const data: VersionedData = {};
+  for (const name of collections) {
+    const value = object[name];
+    if (!Array.isArray(value)) throw new Error(`${collections.join("、")} が配列ではない`);
+    data[name] = value;
+  }
+  return toDatabase(migrate(version, data));
+}
+
+/** 今の版の data を Database にする。版を上げずに足した欄は normalizeDatabase で埋める */
+function toDatabase(data: VersionedData): Database {
   return normalizeDatabase({
-    series: payload.series,
-    episodes: payload.episodes,
-    characters: payload.characters,
-    deleted: Array.isArray(payload.deleted) ? payload.deleted : [],
+    series: (data.series ?? []) as Series[],
+    seasons: (data.seasons ?? []) as Season[],
+    episodes: (data.episodes ?? []) as Episode[],
+    characters: (data.characters ?? []) as Character[],
+    deleted: (data.deleted ?? []) as Deletion[],
   });
 }
 
 /**
  * 本文の行は、前の版だと type（text か timecode）で時刻の有無を分けていた。
- * キーと書き出しの版は上げず、読むときにいまの形へ直す。
+ * 話の長さ duration は、前の版の話には無い。
+ * どちらも版は上げず、読むときにいまの形へ直す。
  */
 function normalizeDatabase(db: Database): Database {
   return {
     series: db.series.map(normalizeBody),
-    episodes: db.episodes.map(normalizeBody),
+    seasons: db.seasons.map(normalizeBody),
+    episodes: db.episodes.map((episode) => normalizeEpisode(normalizeBody(episode))),
     characters: db.characters.map(normalizeBody),
     deleted: db.deleted,
   };
@@ -150,9 +307,25 @@ function normalizeBody<T extends Page>(page: T): T {
   };
 }
 
+function normalizeEpisode(episode: Episode): Episode {
+  const duration: unknown = episode.duration;
+  return {
+    ...episode,
+    duration:
+      typeof duration === "number" && Number.isFinite(duration) && duration > 0
+        ? duration
+        : null,
+  };
+}
+
+/** 読み込みで数えるページの配列。消した印は数えない */
+const pageCollections = ["series", "seasons", "episodes", "characters"] as const;
+
+type PageCollection = (typeof pageCollections)[number];
+
 export interface ImportPreview {
-  create: { series: number; episodes: number; characters: number };
-  overwrite: { series: string[]; episodes: string[]; characters: string[] };
+  create: Record<PageCollection, number>;
+  overwrite: Record<PageCollection, string[]>;
 }
 
 export function previewImport(current: Database, incoming: Database): ImportPreview {
@@ -163,21 +336,14 @@ export function previewImport(current: Database, incoming: Database): ImportPrev
       overwrite: next.filter((item) => ids.has(item.id)).map((item) => item.title),
     };
   };
-  const series = split(current.series, incoming.series);
-  const episodes = split(current.episodes, incoming.episodes);
-  const characters = split(current.characters, incoming.characters);
-  return {
-    create: {
-      series: series.create,
-      episodes: episodes.create,
-      characters: characters.create,
-    },
-    overwrite: {
-      series: series.overwrite,
-      episodes: episodes.overwrite,
-      characters: characters.overwrite,
-    },
-  };
+  const create = {} as Record<PageCollection, number>;
+  const overwrite = {} as Record<PageCollection, string[]>;
+  for (const name of pageCollections) {
+    const result = split<{ id: string; title: string }>(current[name], incoming[name]);
+    create[name] = result.create;
+    overwrite[name] = result.overwrite;
+  }
+  return { create, overwrite };
 }
 
 /**
@@ -197,6 +363,7 @@ export function mergeImport(db: Database, incoming: Database): void {
       return { ...page, updatedAt: stamp };
     });
   db.series = upsert(db.series, revive(incoming.series));
+  db.seasons = upsert(db.seasons, revive(incoming.seasons));
   db.episodes = upsert(db.episodes, revive(incoming.episodes));
   db.characters = upsert(db.characters, revive(incoming.characters));
   db.deleted = db.deleted.filter((item) => !restored.has(item.id));

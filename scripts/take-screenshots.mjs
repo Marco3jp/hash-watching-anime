@@ -128,7 +128,8 @@ async function main() {
     const { storageKeys } = await server.ssrLoadModule("/src/model/storage.ts");
     const db = buildExample();
 
-    const tv1 = byTitle(db.series, "中二病でも恋がしたい！");
+    const franchise = byTitle(db.series, "中二病でも恋がしたい！シリーズ");
+    const tv1 = byTitle(db.seasons, "中二病でも恋がしたい！");
     const first = byTitle(db.episodes, "邂逅の…邪王真眼");
     const second = byTitle(db.episodes, "旋律の…聖調理人（プリーステス）");
     const film = byTitle(db.episodes, "映画 中二病でも恋がしたい！ -Take On Me-");
@@ -151,9 +152,9 @@ async function main() {
       ({ keys, data }) => {
         if (sessionStorage.getItem("seeded")) return;
         sessionStorage.setItem("seeded", "1");
-        localStorage.setItem(keys.series, JSON.stringify(data.series));
-        localStorage.setItem(keys.episodes, JSON.stringify(data.episodes));
-        localStorage.setItem(keys.characters, JSON.stringify(data.characters));
+        for (const [name, key] of Object.entries(keys)) {
+          localStorage.setItem(key, JSON.stringify(data[name]));
+        }
       },
       { keys: storageKeys, data: db },
     );
@@ -163,7 +164,8 @@ async function main() {
 
     const shots = [
       { name: "home", path: "/" },
-      { name: "series", path: `/series/${tv1.id}` },
+      { name: "series", path: `/series/${franchise.id}` },
+      { name: "season", path: `/seasons/${tv1.id}` },
       { name: "episode", path: `/episodes/${first.id}` },
       { name: "episode-roster", path: `/episodes/${second.id}` },
       { name: "film", path: `/episodes/${film.id}` },
@@ -203,6 +205,16 @@ async function main() {
     await page.screenshot({ path: suggestDest, fullPage: true });
     console.log(`  保存完了: ${suggestDest}`);
 
+    console.log("  撮影中: search-suggest");
+    await page.goto(`${baseUrl}/`);
+    await settle(page);
+    await page.getByRole("searchbox", { name: "検索" }).fill("六");
+    await page.getByRole("listbox").waitFor();
+    await settle(page);
+    const searchSuggestDest = join(screenshotsDir, "search-suggest.png");
+    await page.screenshot({ path: searchSuggestDest, fullPage: true });
+    console.log(`  保存完了: ${searchSuggestDest}`);
+
     console.log("  撮影中: home-light");
     await page.emulateMedia({ colorScheme: "light" });
     await page.goto(`${baseUrl}/`);
@@ -219,7 +231,7 @@ async function main() {
     await page.getByText("最後に同期").waitFor();
     // 押したボタンに hover が残らないように
     await page.mouse.move(1279, 799);
-    if (JSON.parse(drive.read().text).series.length !== db.series.length) {
+    if (JSON.parse(drive.read().text).seasons.length !== db.seasons.length) {
       throw new Error("ドライブに上げた JSON が手元と違う");
     }
     await settle(page);
@@ -228,21 +240,21 @@ async function main() {
     console.log(`  保存完了: ${syncDest}`);
 
     console.log("  撮影中: settings-conflict");
-    // 同じシリーズを、ほかの端末（偽のドライブ）と手元の両方で直す
+    // 同じシーズンを、ほかの端末（偽のドライブ）と手元の両方で直す
     drive.edit((data) => {
-      const series = data.series.find((item) => item.id === tv1.id);
-      series.title = "中二病でも恋がしたい！（ほかの端末）";
-      series.updatedAt = "2026-10-01T12:10:00.000Z";
+      const season = data.seasons.find((item) => item.id === tv1.id);
+      season.title = "中二病でも恋がしたい！（ほかの端末）";
+      season.updatedAt = "2026-10-01T12:10:00.000Z";
     });
     await page.evaluate(
       ({ key, id }) => {
-        const series = JSON.parse(localStorage.getItem(key));
-        const target = series.find((item) => item.id === id);
+        const seasons = JSON.parse(localStorage.getItem(key));
+        const target = seasons.find((item) => item.id === id);
         target.title = "中二病でも恋がしたい！（この端末）";
         target.updatedAt = "2026-10-01T12:15:00.000Z";
-        localStorage.setItem(key, JSON.stringify(series));
+        localStorage.setItem(key, JSON.stringify(seasons));
       },
-      { key: storageKeys.series, id: tv1.id },
+      { key: storageKeys.seasons, id: tv1.id },
     );
     // 開き直すと、保存してあるトークンで同期する
     await page.reload();
@@ -259,18 +271,28 @@ async function main() {
     const downloaded = page.waitForEvent("download");
     await page.getByRole("button", { name: "ドライブをダウンロード" }).click();
     const remoteFile = JSON.parse(await readFile(await (await downloaded).path(), "utf8"));
-    if (remoteFile.series[0]?.title !== "中二病でも恋がしたい！（ほかの端末）") {
+    if (remoteFile.seasons[0]?.title !== "中二病でも恋がしたい！（ほかの端末）") {
       throw new Error("ダウンロードしたドライブの版が違う");
     }
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "強制上書き" }).click();
     await page.getByRole("button", { name: "強制上書き" }).waitFor({ state: "detached" });
     const uploadedTitle = () =>
-      JSON.parse(drive.read().text).series.find((item) => item.id === tv1.id).title;
+      JSON.parse(drive.read().text).seasons.find((item) => item.id === tv1.id).title;
     for (let tries = 0; uploadedTitle() !== "中二病でも恋がしたい！（この端末）"; tries += 1) {
       if (tries > 50) throw new Error("強制上書きで手元の版が上がっていない");
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
+
+    // 保存したデータを読めないときの画面。キャラクターのキーだけ壊して撮る
+    console.log("  撮影中: broken");
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.evaluate((key) => localStorage.setItem(key, "{"), storageKeys.characters);
+    await page.goto(`${baseUrl}/`);
+    await settle(page);
+    const brokenDest = join(screenshotsDir, "broken.png");
+    await page.screenshot({ path: brokenDest, fullPage: true });
+    console.log(`  保存完了: ${brokenDest}`);
 
     await browser.close();
     console.log("\nすべてのスクリーンショットを保存しました:", screenshotsDir);

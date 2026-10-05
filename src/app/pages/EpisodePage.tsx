@@ -2,18 +2,20 @@ import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   addAppearance,
-  addSeriesCharacter,
+  addSeasonCharacter,
   createCharacter,
   deleteEpisode,
   removeAppearance,
   updateAppearance,
   updateEpisode,
 } from "../../model/records.ts";
-import type { Character, Database, Episode, Series } from "../../model/types.ts";
-import { buildEpisodeSidePanel, openSeries } from "../../model/views.ts";
+import type { Character, Database, Episode, Season } from "../../model/types.ts";
+import { airedOnCandidates, buildEpisodeSidePanel, openSeason } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
+import { CopyMenu } from "../components/CopyMenu.tsx";
 import { InlineText } from "../components/InlineText.tsx";
 import {
+  AddButton,
   DeleteButton,
   LinkedPages,
   Missing,
@@ -23,8 +25,11 @@ import {
   SideBlock,
 } from "../components/PageFrame.tsx";
 import { PageSuggest } from "../components/PageSuggest.tsx";
+import { PlaybackBar } from "../components/PlaybackBar.tsx";
+import { SeasonPlaces } from "../components/SeasonPlaces.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
-import { pageName, paths, seriesName } from "../paths.ts";
+import { dateLabel, pageName, paths, hashName, weekdayOf } from "../paths.ts";
+import { currentTime } from "../playback.ts";
 import { useDatabase, useStore } from "../store.ts";
 
 export function EpisodePage() {
@@ -32,19 +37,19 @@ export function EpisodePage() {
   const db = useDatabase();
   const episode = db.episodes.find((item) => item.id === id);
   if (!episode) return <Missing what="この話" />;
-  const series = db.series.find((item) => item.id === episode.seriesId);
-  if (!series) return <Missing what="この話のシリーズ" />;
-  return <EpisodeView key={episode.id} db={db} episode={episode} series={series} />;
+  const season = db.seasons.find((item) => item.id === episode.seasonId);
+  if (!season) return <Missing what="この話のシーズン" />;
+  return <EpisodeView key={episode.id} db={db} episode={episode} season={season} />;
 }
 
 function EpisodeView({
   db,
   episode,
-  series,
+  season,
 }: {
   db: Database;
   episode: Episode;
-  series: Series;
+  season: Season;
 }) {
   const store = useStore();
   const navigate = useNavigate();
@@ -60,7 +65,23 @@ function EpisodeView({
         <>
           <div className="flex flex-wrap items-start gap-3">
             <div className="min-w-[min(100%,20rem)] flex-1">
-              <div className="mb-1 flex items-center gap-4">
+              <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+                {/* 劇場版・単発はシーズン名が題名と同じなので、入っていればシリーズ名を出す */}
+                {panel.collapsed ? (
+                  panel.places.map((place) => (
+                    <Link
+                      key={place.series.id}
+                      to={paths.series(place.series.id)}
+                      className="link max-w-full truncate text-sm font-semibold"
+                    >
+                      {hashName(place.series)}
+                    </Link>
+                  ))
+                ) : (
+                  <PageLinkToSeason season={season} className="max-w-full truncate font-semibold">
+                    {hashName(season)}
+                  </PageLinkToSeason>
+                )}
                 <div className="w-24 shrink-0">
                   <InlineText
                     label="話数"
@@ -80,30 +101,44 @@ function EpisodeView({
                   />
                 </label>
               </div>
+              {episode.airedOn === null && !panel.collapsed ? (
+                <AiredOnSuggest
+                  previous={panel.previous}
+                  next={panel.next}
+                  onPick={(airedOn) => update({ airedOn })}
+                />
+              ) : null}
               <TitleFields
                 page={episode}
                 onTitle={(title) => update({ title })}
                 onAliases={(aliases) => update({ aliases })}
               />
             </div>
+            <CopyMenu page={episode} />
             <DeleteButton
               message={`「${pageName(episode)}」を消す`}
               onDelete={() => {
                 store.update((draft) => deleteEpisode(draft, episode.id));
-                const target = openSeries(store.getSnapshot(), series.id);
+                const target = openSeason(store.getSnapshot(), season.id);
                 navigate(
-                  target.kind === "episode" ? paths.episode(target.id) : paths.series(series.id),
+                  target.kind === "episode" ? paths.episode(target.id) : paths.season(season.id),
                 );
               }}
             />
           </div>
         </>
       }
-      body={<BodyEditor page={episode} />}
+      body={
+        <>
+          <BodyEditor page={episode} clock={() => currentTime(episode)} />
+          {/* 画面下に固定するので、置く場所は見た目に関わらない */}
+          <PlaybackBar episode={episode} onDuration={(duration) => update({ duration })} />
+        </>
+      }
       side={
         <>
-          <SideBlock title="シリーズ">
-            <PageLinkToSeries series={series}>{seriesName(series)}</PageLinkToSeries>
+          <SideBlock title="シーズン">
+            <PageLinkToSeason season={season}>{hashName(season)}</PageLinkToSeason>
           </SideBlock>
           {panel.collapsed ? null : (
             <SideBlock title="前後の話">
@@ -111,8 +146,13 @@ function EpisodeView({
               <Neighbor caption="次" episode={panel.next} />
             </SideBlock>
           )}
+          {panel.places.length > 0 ? (
+            <SideBlock title="シリーズ">
+              <SeasonPlaces places={panel.places} />
+            </SideBlock>
+          ) : null}
           <SideBlock title="キャラクター">
-            <EpisodeCharacters db={db} episode={episode} series={series} />
+            <EpisodeCharacters db={db} episode={episode} season={season} />
           </SideBlock>
           <SideBlock title="本文のリンク">
             <LinkedPages pages={panel.links} />
@@ -123,16 +163,68 @@ function EpisodeView({
   );
 }
 
-/** 話が1本の single でも、シリーズの面を直接開く */
-function PageLinkToSeries({
-  series,
-  children,
+/**
+ * 放送日が空のとき、前後の話の放送日から1週と2週ずらした日を出す。
+ * 前回がいつか分かるよう、元の日付を1度だけ出し、ボタンはずらした週と月日だけにする
+ */
+function AiredOnSuggest({
+  previous,
+  next,
+  onPick,
 }: {
-  series: Series;
+  previous: Episode | null;
+  next: Episode | null;
+  onPick: (airedOn: string) => void;
+}) {
+  const groups = airedOnCandidates(previous, next);
+  if (groups.length === 0) return null;
+  return (
+    <div className="mb-1 space-y-1">
+      {groups.map((group) => (
+        <p key={group.from} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+          <span>{group.from === "previous" ? "前回" : "次回"}</span>
+          <DateText date={group.base} withYear />
+          <span aria-hidden>→</span>
+          {group.dates.map(({ weeks, date }) => (
+            <button
+              key={date}
+              type="button"
+              title={dateLabel(date)}
+              onClick={() => onPick(date)}
+              className="btn btn-sm font-normal text-muted"
+            >
+              {weeks > 0 ? `+${weeks}週` : `−${-weeks}週`}
+              <DateText date={date} />
+            </button>
+          ))}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/** 日付は等幅で、曜日は本文の字で出す。等幅の字には日本語が無いことがある */
+function DateText({ date, withYear = false }: { date: string; withYear?: boolean }) {
+  return (
+    <span>
+      <span className="font-mono">{(withYear ? date : date.slice(5)).replaceAll("-", "/")}</span>(
+      {weekdayOf(date)})
+    </span>
+  );
+}
+
+/** 話が1本の single でも、シーズンの面を直接開く */
+function PageLinkToSeason({
+  season,
+  children,
+  className = "",
+}: {
+  season: Season;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <Link to={paths.series(series.id)} className="link text-sm">
+    <Link to={paths.season(season.id)} className={`link text-sm ${className}`}>
       {children}
     </Link>
   );
@@ -148,25 +240,24 @@ function Neighbor({ caption, episode }: { caption: string; episode: Episode | nu
 }
 
 /**
- * 出演が1件でもあれば出演を、無ければシリーズの名簿を出す。
- * 名簿にいて出演に無い人は、下に足すボタンとして並べる。
+ * 出演を上に、名簿にいて出演に無い人を「名簿から」の候補として下に薄く並べる。
+ * 候補は + で、この話の出演に入れる。
  */
 function EpisodeCharacters({
   db,
   episode,
-  series,
+  season,
 }: {
   db: Database;
   episode: Episode;
-  series: Series;
+  season: Season;
 }) {
   const store = useStore();
-  const panel = buildEpisodeSidePanel(db, episode.id);
   const characterById = new Map(db.characters.map((item) => [item.id, item]));
   const roleOf = (characterId: string) =>
-    series.characters.find((item) => item.characterId === characterId)?.role ?? "";
+    season.characters.find((item) => item.characterId === characterId)?.role ?? "";
   const appeared = new Set(episode.appearances.map((item) => item.characterId));
-  const rosterRest = series.characters.filter(
+  const rosterRest = season.characters.filter(
     (item) => !appeared.has(item.characterId) && characterById.has(item.characterId),
   );
 
@@ -176,13 +267,13 @@ function EpisodeCharacters({
   const createAndAppear = (title: string) =>
     store.update((draft) => {
       const character = createCharacter(draft, { title });
-      addSeriesCharacter(draft, series.id, { characterId: character.id, role: "" });
+      addSeasonCharacter(draft, season.id, { characterId: character.id, role: "" });
       addAppearance(draft, episode.id, { characterId: character.id });
     });
 
   return (
     <div className="space-y-4">
-      {panel.characterSource === "appearance" ? (
+      {episode.appearances.length > 0 ? (
         <ul className="space-y-3">
           {episode.appearances.map((row) => {
             const character = characterById.get(row.characterId);
@@ -218,25 +309,26 @@ function EpisodeCharacters({
         </ul>
       ) : null}
 
+      {/* 名簿にいて出演に無い人は、まだ付いていない候補として薄く出す。出演の行と見分けられるように */}
       {rosterRest.length > 0 ? (
         <div>
-          {panel.characterSource === "appearance" ? (
-            <p className="label mb-2">名簿から出演に足す</p>
-          ) : null}
+          <p className="label mb-2">名簿から</p>
           <ul className="space-y-1">
             {rosterRest.map((row) => {
               const character = characterById.get(row.characterId) as Character;
               return (
                 <li key={row.id} className="flex items-center gap-2">
-                  <PageLink page={character} />
-                  <span className="min-w-0 flex-1 truncate text-xs text-muted">{row.role}</span>
-                  <button
-                    type="button"
+                  <AddButton
+                    label={`${character.title} をこの話に出す`}
                     onClick={() => appear(character.id)}
-                    className="btn btn-sm"
+                  />
+                  <Link
+                    to={paths.character(character.id)}
+                    className="text-sm text-muted hover:text-theme"
                   >
-                    出演に付ける
-                  </button>
+                    {character.title}
+                  </Link>
+                  <span className="min-w-0 flex-1 truncate text-xs text-muted/70">{row.role}</span>
                 </li>
               );
             })}
@@ -245,13 +337,13 @@ function EpisodeCharacters({
       ) : null}
 
       <PageSuggest
-        label="出演を付けるキャラクター"
-        placeholder="出演を付ける"
+        label="この話に出すキャラクター"
+        placeholder="キャラクターを足す"
         pages={db.characters.filter((item) => !appeared.has(item.id))}
         hintOf={(character) => roleOf(character.id) || character.aliases.join("、") || undefined}
         onPick={(character) => appear(character.id)}
         onCreate={createAndAppear}
-        createLabel={(text) => `「${text}」を作って名簿と出演に入れる`}
+        createLabel={(text) => `「${text}」を作って足す`}
       />
     </div>
   );

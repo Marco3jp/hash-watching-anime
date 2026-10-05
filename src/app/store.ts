@@ -1,5 +1,5 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
-import type { PageStore } from "../model/storage.ts";
+import type { PageStore, StoreStatus } from "../model/storage.ts";
 import type { Database } from "../model/types.ts";
 import type { SyncController, SyncState } from "../sync/SyncController.ts";
 
@@ -35,4 +35,9 @@ const noop = () => () => undefined;
 export function useSyncState(): SyncState {
   const sync = useSync();
   return useSyncExternalStore(sync?.subscribe ?? noop, sync?.getSnapshot ?? (() => offState));
+}
+
+export function useStoreStatus(): StoreStatus {
+  const store = useStore();
+  return useSyncExternalStore(store.subscribe, store.getStatus);
 }

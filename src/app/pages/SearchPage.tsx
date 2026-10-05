@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { searchPages } from "../../model/search.ts";
-import { kindLabel, pageName, pathOf, seriesName } from "../paths.ts";
+import { kindLabel, pageName, pathOf, hashName } from "../paths.ts";
 import { useDatabase } from "../store.ts";
 
 export function SearchPage() {
@@ -17,9 +17,9 @@ export function SearchPage() {
       {hits.length === 0 ? null : (
         <ul className="mt-6 divide-y divide-line border-y border-line">
           {hits.map(({ page, excerpt }) => {
-            const series =
+            const season =
               page.kind === "episode"
-                ? db.series.find((item) => item.id === page.seriesId)
+                ? db.seasons.find((item) => item.id === page.seasonId)
                 : undefined;
             return (
               <li key={page.id}>
@@ -30,7 +30,7 @@ export function SearchPage() {
                     </span>
                     <span className="text-xs text-muted">
                       {kindLabel[page.kind]}
-                      {series ? `・${seriesName(series)}` : ""}
+                      {season ? `・${hashName(season)}` : ""}
                     </span>
                   </span>
                   {excerpt ? (

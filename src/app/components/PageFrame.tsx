@@ -152,3 +152,25 @@ export function Missing({ what }: { what: string }) {
     </div>
   );
 }
+
+export function AddButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="btn-icon border border-dashed border-line hover:border-theme hover:text-theme"
+    >
+      <svg aria-hidden viewBox="0 0 12 12" className="size-3" stroke="currentColor" strokeWidth="1.5">
+        <path d="M6 1.5v9M1.5 6h9" strokeLinecap="round" />
+      </svg>
+    </button>
+  );
+}
