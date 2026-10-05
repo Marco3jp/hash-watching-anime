@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type ClipboardEvent, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   addSeasonCharacter,
@@ -16,11 +16,11 @@ import type { Database, Season } from "../../model/types.ts";
 import { buildSeasonSidePanel } from "../../model/views.ts";
 import { BodyEditor } from "../components/BodyEditor.tsx";
 import { CopyMenu } from "../components/CopyMenu.tsx";
+import { pasteEpisodeName } from "../components/episodePaste.ts";
 import { InlineText } from "../components/InlineText.tsx";
 import {
   ConflictWarning,
   DeleteButton,
-  LinkedPages,
   Missing,
   PageFrame,
   PageLink,
@@ -30,6 +30,7 @@ import {
 import { MoveButton } from "../components/MoveButton.tsx";
 import { PageSuggest } from "../components/PageSuggest.tsx";
 import { SeasonPlaces } from "../components/SeasonPlaces.tsx";
+import { SeasonTerms } from "../components/SeasonTerms.tsx";
 import { TitleFields } from "../components/TitleFields.tsx";
 import { paths } from "../paths.ts";
 import { UnitToggle } from "../components/UnitToggle.tsx";
@@ -95,11 +96,9 @@ function SeasonView({ db, season }: { db: Database; season: Season }) {
           <SideBlock title="キャラクター名簿">
             <Roster db={db} season={season} />
           </SideBlock>
-          {collapsed ? null : (
-            <SideBlock title="本文のリンク">
-              <LinkedPages pages={panel.links} />
-            </SideBlock>
-          )}
+          <SideBlock title="用語集">
+            <SeasonTerms db={db} season={season} editable />
+          </SideBlock>
         </>
       }
     />
@@ -166,6 +165,14 @@ function EpisodeList({ db, season }: { db: Database; season: Season }) {
     navigate(paths.episode(episode.id));
   };
 
+  // 「第1話カーマイン」を貼ったら、話数と題名に分けて入れる
+  const onPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const split = pasteEpisodeName(event);
+    if (!split) return;
+    setLabel(split.label);
+    setTitle(split.title);
+  };
+
   return (
     <div className="space-y-3">
       {episodes.length === 0 ? null : (
@@ -200,6 +207,7 @@ function EpisodeList({ db, season }: { db: Database; season: Season }) {
           aria-label="足す話の話数"
           value={label}
           onChange={(event) => setLabel(event.target.value)}
+          onPaste={onPaste}
           placeholder={defaultLabel}
           className="field w-20 shrink-0 px-2"
         />
@@ -207,6 +215,7 @@ function EpisodeList({ db, season }: { db: Database; season: Season }) {
           aria-label="足す話の題名"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
+          onPaste={onPaste}
           placeholder="題名"
           className="field flex-1 px-2"
         />

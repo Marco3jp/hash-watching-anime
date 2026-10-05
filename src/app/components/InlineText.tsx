@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ClipboardEvent } from "react";
 
 /**
  * 見ている面にそのまま置く入力。フォーカスが外れるか Enter で保存し、Escape で戻す。
@@ -10,6 +10,7 @@ export function InlineText({
   placeholder,
   label,
   required = false,
+  onPaste,
   className = "",
 }: {
   value: string;
@@ -17,6 +18,7 @@ export function InlineText({
   placeholder?: string;
   label: string;
   required?: boolean;
+  onPaste?: (event: ClipboardEvent<HTMLInputElement>) => void;
   className?: string;
 }) {
   const [draft, setDraft] = useState(value);
@@ -42,6 +44,7 @@ export function InlineText({
       placeholder={placeholder}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
+      onPaste={onPaste}
       onKeyDown={(event) => {
         if (event.nativeEvent.isComposing) return;
         if (event.key === "Enter") event.currentTarget.blur();

@@ -14,7 +14,6 @@ import {
   airedOnCandidates,
   buildCharacterSidePanel,
   buildEpisodeSidePanel,
-  linkedPages,
   openSeason,
   seasonsByRecent,
   seriesByRecent,
@@ -91,12 +90,6 @@ describe("buildEpisodeSidePanel", () => {
     expect(second.characters.map((item) => item.name)).toContain("丹生谷森夏");
   });
 
-  it("本文のリンクは保存した id のページだけを出す", () => {
-    expect(first.links.map((item) => item.title)).toEqual([
-      "富樫勇太",
-      "小鳥遊六花",
-    ]);
-  });
 });
 
 describe("欠けた参照", () => {
@@ -116,25 +109,6 @@ describe("欠けた参照", () => {
     expect(panel.characters).toEqual([]);
   });
 
-  it("本文の pageId にページが無ければ、リンク一覧にも入れない", () => {
-    const pages = linkedPages(
-      {
-        blocks: [
-          {
-            id: "b",
-            at: null,
-            writtenAt: null,
-            runs: [
-              { text: "残っている", pageId: "gone" },
-              { text: "ただの文字" },
-            ],
-          },
-        ],
-      },
-      [],
-    );
-    expect(pages).toEqual([]);
-  });
 });
 
 describe("buildCharacterSidePanel", () => {

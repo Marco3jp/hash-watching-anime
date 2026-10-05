@@ -53,10 +53,12 @@ export function mergeForSync(local: Database, remote: Database, base: SyncBase):
   const toLocal = new Map<string, Entry>();
   const toRemote = new Map<string, Entry>();
   const conflicted = new Set<string>();
-  // 両方に残っているキャラクターとシーズン。それ以外を指す行（名簿、出演、シリーズの並び）は、合わせた後に外れる
-  const remoteIds = new Set([...remote.characters, ...remote.seasons].map((item) => item.id));
+  // 両方に残っているキャラクター、用語、シーズン。それ以外を指す行（名簿、用語集、出演、シリーズの並び）は、合わせた後に外れる
+  const remoteIds = new Set(
+    [...remote.characters, ...remote.terms, ...remote.seasons].map((item) => item.id),
+  );
   const alive = new Set(
-    [...local.characters, ...local.seasons]
+    [...local.characters, ...local.terms, ...local.seasons]
       .filter((item) => remoteIds.has(item.id))
       .map((item) => item.id),
   );
@@ -171,7 +173,11 @@ function withoutMissingRows(page: Page, alive: Set<string>): Page {
     return { ...page, seasons: page.seasons.filter((row) => alive.has(row.seasonId)) };
   }
   if (page.kind === "season") {
-    return { ...page, characters: page.characters.filter((row) => alive.has(row.characterId)) };
+    return {
+      ...page,
+      characters: page.characters.filter((row) => alive.has(row.characterId)),
+      terms: page.terms.filter((row) => alive.has(row.termId)),
+    };
   }
   if (page.kind === "episode") {
     return { ...page, appearances: page.appearances.filter((row) => alive.has(row.characterId)) };
@@ -200,30 +206,39 @@ function entries(db: Database): Map<string, Entry> {
   const map = new Map<string, Entry>();
   for (const item of db.deleted) map.set(item.id, item);
   // 同じ id に印とページがあれば、ページを取る
-  for (const page of [...db.series, ...db.seasons, ...db.episodes, ...db.characters]) {
+  for (const page of [...db.series, ...db.seasons, ...db.episodes, ...db.characters, ...db.terms]) {
     map.set(page.id, page);
   }
   return map;
 }
 
 function toDatabase(map: Map<string, Entry>): Database {
-  const db: Database = { series: [], seasons: [], episodes: [], characters: [], deleted: [] };
+  const db: Database = {
+    series: [],
+    seasons: [],
+    episodes: [],
+    characters: [],
+    terms: [],
+    deleted: [],
+  };
   for (const entry of map.values()) {
     if (isDeletion(entry)) db.deleted.push(entry);
     else if (entry.kind === "series") db.series.push(entry);
     else if (entry.kind === "season") db.seasons.push(entry);
     else if (entry.kind === "episode") db.episodes.push(entry);
+    else if (entry.kind === "term") db.terms.push(entry);
     else db.characters.push(entry);
   }
   return db;
 }
 
 /**
- * 消えたキャラクターの名簿と出演の行、消えたシーズンのシリーズの並びの行は外す。
+ * 消えたキャラクターの名簿と出演の行、消えた用語の用語集の行、消えたシーズンのシリーズの並びの行は外す。
  * どの端末でも同じように外れるので、updatedAt は変えない
  */
 function stripMissingRows(db: Database): Database {
   const characterIds = new Set(db.characters.map((item) => item.id));
+  const termIds = new Set(db.terms.map((item) => item.id));
   const seasonIds = new Set(db.seasons.map((item) => item.id));
   return {
     ...db,
@@ -233,7 +248,9 @@ function stripMissingRows(db: Database): Database {
     }),
     seasons: db.seasons.map((item) => {
       const rows = item.characters.filter((row) => characterIds.has(row.characterId));
-      return rows.length === item.characters.length ? item : { ...item, characters: rows };
+      const terms = item.terms.filter((row) => termIds.has(row.termId));
+      if (rows.length === item.characters.length && terms.length === item.terms.length) return item;
+      return { ...item, characters: rows, terms };
     }),
     episodes: db.episodes.map((item) => {
       const rows = item.appearances.filter((row) => characterIds.has(row.characterId));
@@ -247,7 +264,14 @@ function stripMissingRows(db: Database): Database {
  * 競合したときにダウンロードし、読み込みで戻せるように。無ければ null
  */
 export function pageFile(db: Database, id: string): Database | null {
-  const file: Database = { series: [], seasons: [], episodes: [], characters: [], deleted: [] };
+  const file: Database = {
+    series: [],
+    seasons: [],
+    episodes: [],
+    characters: [],
+    terms: [],
+    deleted: [],
+  };
   const series = db.series.find((item) => item.id === id);
   if (series) return { ...file, series: [series] };
   const season = db.seasons.find((item) => item.id === id);
@@ -259,6 +283,8 @@ export function pageFile(db: Database, id: string): Database | null {
   if (episode) return { ...file, episodes: [episode] };
   const character = db.characters.find((item) => item.id === id);
   if (character) return { ...file, characters: [character] };
+  const term = db.terms.find((item) => item.id === id);
+  if (term) return { ...file, terms: [term] };
   return null;
 }
 
@@ -275,6 +301,7 @@ function canonical(db: Database): string {
     byId(db.seasons),
     byId(db.episodes),
     byId(db.characters),
+    byId(db.terms),
     byId(db.deleted),
   ]);
 }

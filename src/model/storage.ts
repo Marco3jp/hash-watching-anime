@@ -4,19 +4,20 @@ import {
   collectionsByVersion,
   currentVersion,
   migrate,
+  optionalCollections,
   steps,
   storageKeyOf,
   type MigrationStep,
   type VersionedData,
 } from "./migrate.ts";
-import type { Character, Database, Deletion, Episode, Page, Season, Series } from "./types.ts";
+import type { Character, Database, Deletion, Episode, Page, Season, Series, Term } from "./types.ts";
 
 /**
  * 保存先は LocalStorage。Sparkling Journey と同じく、種類ごとに1キーへ配列を置く。
  * 公開先が同じ marco3jp.github.io なので、キーにはプロジェクト名を付けて分ける。
  * キーの末尾は版。版を上げたら新しいキーへ書き、前の版のキーは消さずに残す。
  */
-const collections = ["series", "seasons", "episodes", "characters", "deleted"] as const;
+const collections = ["series", "seasons", "episodes", "characters", "terms", "deleted"] as const;
 
 type Collection = (typeof collections)[number];
 
@@ -25,7 +26,7 @@ export const storageKeys = Object.fromEntries(
 ) as Record<Collection, string>;
 
 function emptyDb(): Database {
-  return { series: [], seasons: [], episodes: [], characters: [], deleted: [] };
+  return { series: [], seasons: [], episodes: [], characters: [], terms: [], deleted: [] };
 }
 
 export interface StorageLike {
@@ -231,6 +232,7 @@ export function exportJson(db: Database): string {
     seasons: db.seasons,
     episodes: db.episodes,
     characters: db.characters,
+    terms: db.terms,
     deleted: db.deleted,
   };
   return JSON.stringify(payload, null, 2);
@@ -267,6 +269,8 @@ export function parseExport(json: string): Database {
   const data: VersionedData = {};
   for (const name of collections) {
     const value = object[name];
+    // 版を上げずに足した配列は、前に書き出した JSON に無い
+    if (value === undefined && optionalCollections.includes(name)) continue;
     if (!Array.isArray(value)) throw new Error(`${collections.join("、")} が配列ではない`);
     data[name] = value;
   }
@@ -280,21 +284,26 @@ function toDatabase(data: VersionedData): Database {
     seasons: (data.seasons ?? []) as Season[],
     episodes: (data.episodes ?? []) as Episode[],
     characters: (data.characters ?? []) as Character[],
+    terms: (data.terms ?? []) as Term[],
     deleted: (data.deleted ?? []) as Deletion[],
   });
 }
 
 /**
  * 本文の行は、前の版だと type（text か timecode）で時刻の有無を分けていた。
- * 話の長さ duration は、前の版の話には無い。
- * どちらも版は上げず、読むときにいまの形へ直す。
+ * 話の長さ duration と、シーズンの用語集 terms は、前の版には無い。
+ * どれも版は上げず、読むときにいまの形へ直す。
  */
 function normalizeDatabase(db: Database): Database {
   return {
     series: db.series.map(normalizeBody),
-    seasons: db.seasons.map(normalizeBody),
+    seasons: db.seasons.map((season) => ({
+      ...normalizeBody(season),
+      terms: Array.isArray(season.terms) ? season.terms : [],
+    })),
     episodes: db.episodes.map((episode) => normalizeEpisode(normalizeBody(episode))),
     characters: db.characters.map(normalizeBody),
+    terms: db.terms.map(normalizeBody),
     deleted: db.deleted,
   };
 }
@@ -319,7 +328,7 @@ function normalizeEpisode(episode: Episode): Episode {
 }
 
 /** 読み込みで数えるページの配列。消した印は数えない */
-const pageCollections = ["series", "seasons", "episodes", "characters"] as const;
+const pageCollections = ["series", "seasons", "episodes", "characters", "terms"] as const;
 
 type PageCollection = (typeof pageCollections)[number];
 
@@ -366,6 +375,7 @@ export function mergeImport(db: Database, incoming: Database): void {
   db.seasons = upsert(db.seasons, revive(incoming.seasons));
   db.episodes = upsert(db.episodes, revive(incoming.episodes));
   db.characters = upsert(db.characters, revive(incoming.characters));
+  db.terms = upsert(db.terms, revive(incoming.terms));
   db.deleted = db.deleted.filter((item) => !restored.has(item.id));
 }
 

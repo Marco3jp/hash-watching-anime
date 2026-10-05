@@ -2,10 +2,10 @@ import type {
   Character,
   Database,
   Episode,
-  MemoBody,
   Page,
   Season,
   Series,
+  Term,
 } from "./types.ts";
 
 export type OpenTarget =
@@ -37,8 +37,8 @@ export interface EpisodeSidePanel {
   next: Episode | null;
   characters: SideCharacter[];
   characterSource: "appearance" | "roster";
-  /** 本文に保存されている id のうち、ページが残っているもの */
-  links: Page[];
+  /** シーズンの用語集 */
+  terms: SideTerm[];
 }
 
 export interface SeasonSidePanel {
@@ -46,7 +46,7 @@ export interface SeasonSidePanel {
   places: SeasonPlace[];
   episodes: Episode[];
   characters: SideCharacter[];
-  links: Page[];
+  terms: SideTerm[];
   /** single で話が1本なら、開く先はその話 */
   open: OpenTarget;
 }
@@ -55,18 +55,37 @@ export interface SeriesSidePanel {
   series: Series;
   /** 並びの順。シーズンが無い行は出さない */
   seasons: { rowId: string; season: Season; note: string; episodes: number }[];
-  links: Page[];
+}
+
+/** 本文でそのページにリンクした話と、その行の話の中の時刻 */
+export interface Mention {
+  episode: Episode;
+  season: Season;
+  /** リンクした行の話の中の時刻。時刻の無い行は入れない。重なりは1つにする */
+  times: string[];
+}
+
+export interface SideTerm {
+  termId: string;
+  name: string;
+  note: string;
+}
+
+export interface TermSidePanel {
+  term: Term;
+  seasons: { season: Season; note: string }[];
+  mentions: Mention[];
 }
 
 export interface CharacterSidePanel {
   character: Character;
   roster: { season: Season; role: string; note: string }[];
   appearances: { episode: Episode; season: Season; note: string }[];
-  links: Page[];
+  mentions: Mention[];
 }
 
 export function pagesOf(db: Database): Page[] {
-  return [...db.series, ...db.seasons, ...db.episodes, ...db.characters];
+  return [...db.series, ...db.seasons, ...db.episodes, ...db.characters, ...db.terms];
 }
 
 export function openSeason(db: Database, seasonId: string): OpenTarget {
@@ -78,21 +97,6 @@ export function openSeason(db: Database, seasonId: string): OpenTarget {
   const episodes = db.episodes.filter((item) => item.seasonId === season.id);
   if (episodes.length === 1) return { kind: "episode", id: episodes[0].id };
   return { kind: "season", id: season.id };
-}
-
-export function linkedPages(body: MemoBody, pages: Page[]): Page[] {
-  const seen = new Set<string>();
-  const found: Page[] = [];
-  for (const block of body.blocks) {
-    for (const run of block.runs) {
-      if (!run.pageId || seen.has(run.pageId)) continue;
-      seen.add(run.pageId);
-      const page = pages.find((item) => item.id === run.pageId);
-      if (!page) continue;
-      found.push(page);
-    }
-  }
-  return found;
 }
 
 export function buildEpisodeSidePanel(
@@ -135,7 +139,7 @@ export function buildEpisodeSidePanel(
       return character ? [character] : [];
     }),
     characterSource,
-    links: linkedPages(episode.body, pagesOf(db)),
+    terms: sideTerms(db, season),
   };
 }
 
@@ -155,7 +159,7 @@ export function buildSeasonSidePanel(
       const character = sideCharacter(season, item.characterId, item.note, db);
       return character ? [character] : [];
     }),
-    links: linkedPages(season.body, pagesOf(db)),
+    terms: sideTerms(db, season),
     open: openSeason(db, season.id),
   };
 }
@@ -173,7 +177,6 @@ export function buildSeriesSidePanel(db: Database, seriesId: string): SeriesSide
       const episodes = db.episodes.filter((item) => item.seasonId === season.id).length;
       return [{ rowId: row.id, season, note: row.note, episodes }];
     }),
-    links: linkedPages(series.body, pagesOf(db)),
   };
 }
 
@@ -228,8 +231,43 @@ export function buildCharacterSidePanel(
           return [{ episode, season, note: item.note }];
         }),
     ),
-    links: linkedPages(character.body, pagesOf(db)),
+    mentions: mentionsOf(db, character.id),
   };
+}
+
+export function buildTermSidePanel(db: Database, termId: string): TermSidePanel {
+  const term = must(
+    db.terms.find((item) => item.id === termId),
+    termId,
+  );
+  return {
+    term,
+    seasons: db.seasons.flatMap((season) =>
+      season.terms
+        .filter((item) => item.termId === term.id)
+        .map((item) => ({ season, note: item.note })),
+    ),
+    mentions: mentionsOf(db, term.id),
+  };
+}
+
+/**
+ * 本文でそのページにリンクした話。「この話でこれが出てきた」を辿るために使う。
+ * シーズンは保存の順、同じシーズンの中は話の並び。シーズンの無い話は飛ばす
+ */
+export function mentionsOf(db: Database, pageId: string): Mention[] {
+  return db.seasons.flatMap((season) =>
+    episodesIn(db, season.id).flatMap((episode) => {
+      const blocks = episode.body.blocks.filter((block) =>
+        block.runs.some((run) => run.pageId === pageId),
+      );
+      if (blocks.length === 0) return [];
+      const times = [
+        ...new Set(blocks.flatMap((block) => (block.at?.trim() ? [block.at.trim()] : []))),
+      ];
+      return [{ episode, season, times }];
+    }),
+  );
 }
 
 export function episodesIn(db: Database, seasonId: string): Episode[] {
@@ -294,6 +332,13 @@ function sideCharacter(
     role: roster?.role ?? "",
     note,
   };
+}
+
+function sideTerms(db: Database, season: Season): SideTerm[] {
+  return season.terms.flatMap((row) => {
+    const term = db.terms.find((item) => item.id === row.termId);
+    return term ? [{ termId: term.id, name: term.title, note: row.note }] : [];
+  });
 }
 
 function must<T>(value: T | undefined, label: string): T {

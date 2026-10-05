@@ -17,7 +17,6 @@ import { MoveButton } from "../components/MoveButton.tsx";
 import {
   ConflictWarning,
   DeleteButton,
-  LinkedPages,
   Missing,
   PageFrame,
   PageLink,
@@ -79,9 +78,6 @@ function SeriesView({ db, series }: { db: Database; series: Series }) {
         <>
           <SideBlock title="シーズン">
             <SeasonList db={db} series={series} panel={panel} />
-          </SideBlock>
-          <SideBlock title="本文のリンク">
-            <LinkedPages pages={panel.links} />
           </SideBlock>
         </>
       }

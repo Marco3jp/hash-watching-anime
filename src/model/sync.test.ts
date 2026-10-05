@@ -1,17 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addSeasonCharacter,
+  addSeasonTerm,
   createCharacter,
   createEpisode,
   addSeriesSeason,
   createSeason,
   createSeries,
+  createTerm,
   deleteCharacter,
   deleteEpisode,
   deleteSeason,
+  deleteTerm,
   emptyDatabase,
   updateEpisode,
   updateSeason,
+  updateTerm,
 } from "./records.ts";
 import { mergeImport } from "./storage.ts";
 import { mergeForSync, sameDatabase, versionOf, type SyncBase } from "./sync.ts";
@@ -33,7 +37,14 @@ afterEach(() => {
 
 function baseOf(db: Database): SyncBase {
   const base: SyncBase = {};
-  for (const entry of [...db.series, ...db.seasons, ...db.episodes, ...db.characters, ...db.deleted]) {
+  for (const entry of [
+    ...db.series,
+    ...db.seasons,
+    ...db.episodes,
+    ...db.characters,
+    ...db.terms,
+    ...db.deleted,
+  ]) {
     base[entry.id] = versionOf(entry);
   }
   return base;
@@ -233,5 +244,50 @@ describe("mergeImport と消した印", () => {
     at("2026-10-03T00:00:00Z", () => mergeImport(local, backup));
     expect(local.deleted).toEqual([]);
     expect(local.episodes[0].updatedAt).toBe("2026-10-03T00:00:00.000Z");
+  });
+});
+
+describe("用語の同期", () => {
+  function syncedWithTerm() {
+    const local = emptyDatabase();
+    const { season, term } = at("2026-10-01T00:00:00Z", () => {
+      const season = createSeason(local, { title: "作品", unit: "serial" });
+      const term = createTerm(local, { title: "邪王真眼" });
+      addSeasonTerm(local, season.id, { termId: term.id });
+      return { season, term };
+    });
+    const remote: Database = structuredClone(local);
+    const base: SyncBase = {};
+    for (const entry of [...local.seasons, ...local.terms]) base[entry.id] = versionOf(entry);
+    return { local, remote, base, season, term };
+  }
+
+  it("ドライブにだけある用語を手元へ持ってくる", () => {
+    const local = emptyDatabase();
+    const remote = emptyDatabase();
+    const term = createTerm(remote, { title: "不可視境界線" });
+    const merged = mergeForSync(local, remote, {});
+    expect(merged.local.terms.map((item) => item.id)).toEqual([term.id]);
+    expect(merged.conflicts).toEqual([]);
+  });
+
+  it("ほかの端末で消した用語は、消した印で手元からも外し、用語集の行も外す", () => {
+    const { local, remote, base, season, term } = syncedWithTerm();
+    at("2026-10-02T00:00:00Z", () => deleteTerm(remote, term.id));
+    const merged = mergeForSync(local, remote, base);
+    expect(merged.local.terms).toEqual([]);
+    expect(merged.local.deleted.map((item) => item.id)).toContain(term.id);
+    const after = merged.local.seasons.find((item) => item.id === season.id)!;
+    expect(after.terms).toEqual([]);
+    expect(merged.conflicts).toEqual([]);
+  });
+
+  it("両方の端末で直した用語は競合にする", () => {
+    const { local, remote, base, term } = syncedWithTerm();
+    at("2026-10-02T00:00:00Z", () => updateTerm(local, term.id, { title: "手元" }));
+    at("2026-10-03T00:00:00Z", () => updateTerm(remote, term.id, { title: "ドライブ" }));
+    const merged = mergeForSync(local, remote, base);
+    expect(merged.conflicts.map((item) => [item.id, item.kind])).toEqual([[term.id, "term"]]);
+    expect(merged.conflicts[0].remote?.terms.map((item) => item.title)).toEqual(["ドライブ"]);
   });
 });

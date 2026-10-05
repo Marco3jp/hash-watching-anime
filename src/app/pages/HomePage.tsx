@@ -4,6 +4,7 @@ import {
   createCharacter,
   createEpisode,
   createSeason,
+  createTerm,
 } from "../../model/records.ts";
 import type { SeasonUnit } from "../../model/types.ts";
 import { episodesIn, seasonsByRecent, seriesByRecent } from "../../model/views.ts";
@@ -88,31 +89,56 @@ export function HomePage() {
           )}
         </section>
       </div>
-      <section>
-        <h2 className="text-2xl font-semibold">キャラクター</h2>
-        <CreateCharacter />
-        {db.characters.length === 0 ? null : (
-          <ul className="mt-6 divide-y divide-line border-y border-line">
-            {db.characters.map((character) => (
-              <li key={character.id}>
-                <Link
-                  to={paths.character(character.id)}
-                  className="group flex items-baseline gap-3 px-1 py-2.5 hover:bg-surface"
-                >
-                  <span className="font-medium text-theme group-hover:text-theme-dark">
-                    {character.title}
-                  </span>
-                  {character.aliases.length > 0 ? (
-                    <span className="truncate text-xs text-muted">
-                      {character.aliases.join("、")}
+      <div className="space-y-12">
+        <section>
+          <h2 className="text-2xl font-semibold">キャラクター</h2>
+          <CreateCharacter />
+          {db.characters.length === 0 ? null : (
+            <ul className="mt-6 divide-y divide-line border-y border-line">
+              {db.characters.map((character) => (
+                <li key={character.id}>
+                  <Link
+                    to={paths.character(character.id)}
+                    className="group flex items-baseline gap-3 px-1 py-2.5 hover:bg-surface"
+                  >
+                    <span className="font-medium text-theme group-hover:text-theme-dark">
+                      {character.title}
                     </span>
-                  ) : null}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                    {character.aliases.length > 0 ? (
+                      <span className="truncate text-xs text-muted">
+                        {character.aliases.join("、")}
+                      </span>
+                    ) : null}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section>
+          <h2 className="text-2xl font-semibold">用語</h2>
+          <CreateTerm />
+          {db.terms.length === 0 ? null : (
+            <ul className="mt-6 divide-y divide-line border-y border-line">
+              {db.terms.map((term) => (
+                <li key={term.id}>
+                  <Link
+                    to={paths.term(term.id)}
+                    className="group flex items-baseline gap-3 px-1 py-2.5 hover:bg-surface"
+                  >
+                    <span className="font-medium text-theme group-hover:text-theme-dark">
+                      {term.title}
+                    </span>
+                    {term.aliases.length > 0 ? (
+                      <span className="truncate text-xs text-muted">{term.aliases.join("、")}</span>
+                    ) : null}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
@@ -185,6 +211,39 @@ function CreateCharacter() {
         onChange={setTitle}
         pages={db.characters}
         hintOf={(character) => character.aliases.join("、") || undefined}
+        placeholder="名前"
+        className="flex-1"
+      />
+      <button type="submit" disabled={!title.trim()} className="btn">
+        作る
+      </button>
+    </form>
+  );
+}
+
+function CreateTerm() {
+  const db = useDatabase();
+  const store = useStore();
+  const navigate = useNavigate();
+  const [title, setTitle] = useState("");
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const term = store.update((db) => createTerm(db, { title: trimmed }));
+    setTitle("");
+    navigate(paths.term(term.id));
+  };
+
+  return (
+    <form onSubmit={onSubmit} className="mt-4 flex items-center gap-2">
+      <JumpSuggest
+        aria-label="用語の名前"
+        value={title}
+        onChange={setTitle}
+        pages={db.terms}
+        hintOf={(term) => term.aliases.join("、") || undefined}
         placeholder="名前"
         className="flex-1"
       />

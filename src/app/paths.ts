@@ -9,12 +9,14 @@ export const paths = {
   season: (id: string) => `/seasons/${id}`,
   episode: (id: string) => `/episodes/${id}`,
   character: (id: string) => `/characters/${id}`,
+  term: (id: string) => `/terms/${id}`,
 };
 
 /** シーズンへのリンクは openSeason に従う。single で話が1本なら、その話を開く */
 export function pathOf(db: Database, page: Page): string {
   if (page.kind === "episode") return paths.episode(page.id);
   if (page.kind === "character") return paths.character(page.id);
+  if (page.kind === "term") return paths.term(page.id);
   if (page.kind === "series") return paths.series(page.id);
   const target = openSeason(db, page.id);
   return target.kind === "episode"
@@ -27,6 +29,7 @@ export const kindLabel: Record<Page["kind"], string> = {
   season: "シーズン",
   episode: "話",
   character: "キャラクター",
+  term: "用語",
 };
 
 export const unitLabel: Record<SeasonUnit, string> = {
@@ -42,7 +45,7 @@ export function hashName(page: Pick<Page, "title">): string {
   return /^[#＃]/.test(page.title) ? page.title : `#${page.title}`;
 }
 
-/** 話は「第1話 題名」。シリーズとシーズンは「#題名」。キャラクターは題名だけ */
+/** 話は「第1話 題名」。シリーズとシーズンは「#題名」。キャラクターと用語は題名だけ */
 export function pageName(page: Page): string {
   if (page.kind === "series" || page.kind === "season") return hashName(page);
   return page.kind === "episode" && page.label

@@ -9,6 +9,7 @@ import { SearchPage } from "./app/pages/SearchPage.tsx";
 import { SeasonPage } from "./app/pages/SeasonPage.tsx";
 import { SeriesPage } from "./app/pages/SeriesPage.tsx";
 import { SettingsPage } from "./app/pages/SettingsPage.tsx";
+import { TermPage } from "./app/pages/TermPage.tsx";
 
 export const router = createBrowserRouter(
   [
@@ -29,6 +30,7 @@ export const router = createBrowserRouter(
             { path: "seasons/:id", element: <SeasonPage /> },
             { path: "episodes/:id", element: <EpisodePage /> },
             { path: "characters/:id", element: <CharacterPage /> },
+            { path: "terms/:id", element: <TermPage /> },
             { path: "search", element: <SearchPage /> },
             { path: "settings", element: <SettingsPage /> },
             { path: "*", element: <Missing what="このページ" /> },

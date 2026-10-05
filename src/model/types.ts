@@ -4,7 +4,7 @@
  * 実況に要るのは話と、その一覧を持つシーズン。
  * シリーズは、シーズンを束ねる任意の器。オタクのいう「〇〇シリーズ」で、後から付く呼び名。
  * 「ガンダムシリーズ」のように、派生も含めて大きく束ねる。
- * キャラクターはサイドパネル用。スタッフと楽曲はまだ入れない。
+ * キャラクターと用語はサイドパネル用。スタッフと楽曲はまだ入れない。
  *
  * 参照は id。相手の中身はコピーしない。
  * 本文中のリンクも、サジェストで選んだページの id を持つ。
@@ -73,6 +73,10 @@ export interface Season extends PageFields {
   unit: SeasonUnit;
   /** このシーズンのキャラクター。話に出演が無いときのサイドパネル */
   characters: SeasonCharacter[];
+  /**
+   * このシーズンの用語集。前の版のシーズンには無いので、読むときに空で埋める
+   */
+  terms: SeasonTerm[];
 }
 
 export interface Episode extends PageFields {
@@ -100,13 +104,27 @@ export interface Character extends PageFields {
   kind: "character";
 }
 
-export type Page = Series | Season | Episode | Character;
+/**
+ * 作中の用語。キャラクターと同じく、シーズンの用語集に入れてサイドパネルに出す。
+ * どの話で出てきたかは持たず、話の本文のリンクから辿る
+ */
+export interface Term extends PageFields {
+  kind: "term";
+}
+
+export type Page = Series | Season | Episode | Character | Term;
 
 export interface SeasonCharacter {
   id: string;
   characterId: string;
   /** 「主人公」など。決まった語彙にはしない */
   role: string;
+  note: string;
+}
+
+export interface SeasonTerm {
+  id: string;
+  termId: string;
   note: string;
 }
 
@@ -131,5 +149,7 @@ export interface Database {
   seasons: Season[];
   episodes: Episode[];
   characters: Character[];
+  /** 前の版には無い。読むときに空で埋める */
+  terms: Term[];
   deleted: Deletion[];
 }

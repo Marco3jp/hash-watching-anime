@@ -13,8 +13,14 @@ export const currentVersion = 3;
 export const collectionsByVersion: Record<number, readonly string[]> = {
   1: ["series", "episodes", "characters"],
   2: ["series", "seasons", "episodes", "characters"],
-  3: ["series", "seasons", "episodes", "characters", "deleted"],
+  3: ["series", "seasons", "episodes", "characters", "deleted", "terms"],
 };
+
+/**
+ * 版を上げずに足した配列。無ければ空として読む。
+ * terms（用語）は 2026-10-06 に v3 のまま足した。前の v3 のキーと書き出しには無い
+ */
+export const optionalCollections: readonly string[] = ["terms"];
 
 /** ある版の配列の組。中身の形は版ごとに違うので、ここでは見ない */
 export type VersionedData = Record<string, unknown[]>;
