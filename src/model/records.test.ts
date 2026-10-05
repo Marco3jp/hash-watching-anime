@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildExample } from "./example.ts";
 import {
+  addAppearance,
+  addSeasonCharacter,
   cleanAliases,
   createEpisode,
   deleteCharacter,
@@ -44,6 +46,18 @@ describe("createEpisode", () => {
   });
 });
 
+describe("addAppearance と addSeasonCharacter", () => {
+  it("同じキャラクターは2度入れず、入っている行を返す", () => {
+    const { db, tv1, rikka, first } = example();
+    const roster = tv1.characters.find((item) => item.characterId === rikka.id)!;
+    expect(addSeasonCharacter(db, tv1.id, { characterId: rikka.id, role: "" }).id).toBe(roster.id);
+    expect(tv1.characters.filter((item) => item.characterId === rikka.id)).toHaveLength(1);
+    const row = addAppearance(db, first.id, { characterId: rikka.id });
+    expect(addAppearance(db, first.id, { characterId: rikka.id }).id).toBe(row.id);
+    expect(first.appearances.filter((item) => item.characterId === rikka.id)).toHaveLength(1);
+  });
+});
+
 describe("moveEpisode", () => {
   it("隣の話と sortKey を入れ替える", () => {
     const { db, tv1, first } = example();
@@ -56,6 +70,22 @@ describe("moveEpisode", () => {
     moveEpisode(db, first.id, 1);
     moveEpisode(db, first.id, 1);
     expect(episodesIn(db, tv1.id).at(-1)?.id).toBe(first.id);
+  });
+
+  it("sortKey が同じ話（2台で同時に足して同期したなど）も入れ替わる", () => {
+    const { db, tv1 } = example();
+    const a = createEpisode(db, { seasonId: tv1.id, title: "", label: "A", airedOn: null });
+    const b = createEpisode(db, {
+      seasonId: tv1.id,
+      title: "",
+      label: "B",
+      sortKey: a.sortKey,
+      airedOn: null,
+    });
+    moveEpisode(db, b.id, -1);
+    expect(episodesIn(db, tv1.id).slice(-2).map((item) => item.label)).toEqual(["B", "A"]);
+    const keys = episodesIn(db, tv1.id).map((item) => item.sortKey);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });
 

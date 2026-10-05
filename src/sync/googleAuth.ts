@@ -14,6 +14,11 @@ export interface AccessToken {
 }
 
 export interface Auth {
+  /**
+   * requestToken の前に、要るものを読んでおく。押してから読むと、ポップアップを開くのが操作から遅れて止められることがある。
+   * 何度呼んでもよい
+   */
+  preload?(): void;
   /** 初めては同意の画面、2回目からは選んだアカウントで閉じる */
   requestToken(): Promise<AccessToken>;
   revoke(token: string): void;
@@ -110,6 +115,7 @@ export function createGoogleAuth(clientId: string, scope: string): Auth {
     }));
 
   return {
+    preload: preloadGoogleAuth,
     async requestToken() {
       const oauth2 = await loadOAuth2();
       settle(new Error("取り直した"));

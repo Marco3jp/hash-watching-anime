@@ -1,4 +1,5 @@
 import type { ClipboardEvent } from "react";
+import { cleanAliases } from "../../model/records.ts";
 import type { Page } from "../../model/types.ts";
 import { InlineText } from "./InlineText.tsx";
 
@@ -39,7 +40,11 @@ export function TitleFields({
         <InlineText
           label="別名"
           value={page.aliases.join("、")}
-          onCommit={(value) => onAliases(value.split(/[、,，\n]/))}
+          onCommit={(value) => {
+            const aliases = cleanAliases(page.title, value.split(/[、,，\n]/));
+            // 区切りの打ち方が違うだけで中身が同じなら、直したことにしない
+            if (aliases.join("\n") !== page.aliases.join("\n")) onAliases(aliases);
+          }}
         />
       </div>
     </>

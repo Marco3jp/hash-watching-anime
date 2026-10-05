@@ -1,4 +1,5 @@
 import { normalizeBlock } from "./body.ts";
+import { emptyDatabase } from "./records.ts";
 import {
   allStorageKeys,
   collectionsByVersion,
@@ -24,10 +25,6 @@ type Collection = (typeof collections)[number];
 export const storageKeys = Object.fromEntries(
   collections.map((name) => [name, storageKeyOf(name, currentVersion)]),
 ) as Record<Collection, string>;
-
-function emptyDb(): Database {
-  return { series: [], seasons: [], episodes: [], characters: [], terms: [], deleted: [] };
-}
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -108,7 +105,7 @@ export function readStorage(
       };
     }
   }
-  return { ok: true, db: emptyDb(), migratedFrom: null };
+  return { ok: true, db: emptyDatabase(), migratedFrom: null };
 }
 
 /** 前の版も含めて、保存してある文字列をそのまま集める。読めないデータも、そのまま持ち出せる */
@@ -128,23 +125,36 @@ export function dumpRaw(storage: Pick<StorageLike, "getItem">): string {
   return JSON.stringify(dump, null, 2);
 }
 
+/** 読めなければ、空の Database を見せて broken にする */
+function loaded(result: ReadResult): { snapshot: Database; status: StoreStatus } {
+  return result.ok
+    ? { snapshot: result.db, status: { kind: "ok", migratedFrom: result.migratedFrom } }
+    : {
+        snapshot: emptyDatabase(),
+        status: { kind: "broken", message: result.message, keys: result.keys },
+      };
+}
+
 export class PageStore {
   private storage: StorageLike;
   private snapshot: Database;
   private status: StoreStatus;
+  /** 最後の書き込みが失敗したときの理由。容量を超えたときなど。次に書けたら null に戻す */
+  private writeError: string | null = null;
   private listeners = new Set<() => void>();
 
   constructor(storage: StorageLike) {
     this.storage = storage;
     const result = readStorage(storage);
-    if (result.ok) {
-      this.snapshot = result.db;
-      this.status = { kind: "ok", migratedFrom: result.migratedFrom };
-      // 前の版から移したら、今の版のキーへ書いておく。前の版のキーは残す
-      if (result.migratedFrom !== null) this.write(result.db);
-    } else {
-      this.snapshot = emptyDb();
-      this.status = { kind: "broken", message: result.message, keys: result.keys };
+    ({ snapshot: this.snapshot, status: this.status } = loaded(result));
+    // 前の版から移したら、今の版のキーへ書いておく。前の版のキーは残す
+    // 書けなくても（容量を超えたときなど）開けるようにする。次に書くときにまた書く
+    if (result.ok && result.migratedFrom !== null) {
+      try {
+        this.write(result.db);
+      } catch (caught) {
+        this.writeError = (caught as Error).message || "保存できない";
+      }
     }
   }
 
@@ -152,21 +162,21 @@ export class PageStore {
 
   getStatus = (): StoreStatus => this.status;
 
+  getWriteError = (): string | null => this.writeError;
+
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   };
 
-  /** 複製に対して書き換え、全キーを書き直す。読めなかったときは書かない */
+  /** 複製に対して書き換え、変わったキーを書く。読めなかったときは書かない */
   update<T>(change: (db: Database) => T): T {
     if (this.status.kind === "broken") {
       throw new Error("保存したデータを読めなかったので、書き込まない");
     }
     const next = structuredClone(this.snapshot);
     const result = change(next);
-    this.write(next);
-    this.snapshot = next;
-    this.emit();
+    this.commit(next);
     return result;
   }
 
@@ -175,21 +185,12 @@ export class PageStore {
     if (this.status.kind === "broken") {
       throw new Error("保存したデータを読めなかったので、書き込まない");
     }
-    this.write(next);
-    this.snapshot = next;
-    this.emit();
+    this.commit(next);
   }
 
   /** 別のタブが書いたときに読み直す */
   reload(): void {
-    const result = readStorage(this.storage);
-    if (result.ok) {
-      this.snapshot = result.db;
-      this.status = { kind: "ok", migratedFrom: result.migratedFrom };
-    } else {
-      this.snapshot = emptyDb();
-      this.status = { kind: "broken", message: result.message, keys: result.keys };
-    }
+    ({ snapshot: this.snapshot, status: this.status } = loaded(readStorage(this.storage)));
     this.emit();
   }
 
@@ -210,8 +211,47 @@ export class PageStore {
     if (status.kind === "ok" && status.migratedFrom !== null) this.write(this.snapshot);
   }
 
+  /** 書けたときだけ snapshot を差し替える。書けなければ、画面は前の中身のまま理由を出す */
+  private commit(next: Database): void {
+    try {
+      this.write(next);
+    } catch (caught) {
+      this.writeError = (caught as Error).message || "保存できない";
+      this.emit();
+      throw caught;
+    }
+    this.writeError = null;
+    this.snapshot = next;
+    this.emit();
+  }
+
+  /**
+   * 中身の変わったキーだけを書く。本文は打つたびに保存するので、ほかのキーまで毎回書き直さない。
+   * 途中のキーで失敗したら（容量を超えたときなど）、書いたキーを前の中身へ戻す。
+   * 戻さないと、前のキーだけ新しくなり、話とシーズンが食い違う
+   */
   private write(db: Database): void {
-    for (const name of collections) this.storage.setItem(storageKeys[name], JSON.stringify(db[name]));
+    const written: [string, string | null][] = [];
+    try {
+      for (const name of collections) {
+        const key = storageKeys[name];
+        const value = JSON.stringify(db[name]);
+        const before = this.storage.getItem(key);
+        if (before === value) continue;
+        written.push([key, before]);
+        this.storage.setItem(key, value);
+      }
+    } catch (caught) {
+      for (const [key, before] of written.reverse()) {
+        try {
+          if (before === null) this.storage.removeItem(key);
+          else this.storage.setItem(key, before);
+        } catch {
+          // 戻すのにも失敗したら、そのキーは新しい中身のまま。次に読むときに食い違いが出る
+        }
+      }
+      throw caught;
+    }
   }
 
   private emit(): void {
@@ -381,10 +421,15 @@ export function mergeImport(db: Database, incoming: Database): void {
 
 function upsert<T extends { id: string }>(current: T[], incoming: T[]): T[] {
   const result = [...current];
+  const indexOf = new Map(result.map((item, index) => [item.id, index]));
   for (const item of incoming) {
-    const index = result.findIndex((existing) => existing.id === item.id);
-    if (index === -1) result.push(item);
-    else result[index] = item;
+    const index = indexOf.get(item.id);
+    if (index === undefined) {
+      indexOf.set(item.id, result.length);
+      result.push(item);
+    } else {
+      result[index] = item;
+    }
   }
   return result;
 }

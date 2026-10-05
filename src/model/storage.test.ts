@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildExample } from "./example.ts";
 import v1Export from "./fixtures/v1.json";
-import { createCharacter, createSeason, emptyDatabase } from "./records.ts";
+import { createCharacter, createEpisode, createSeason, emptyDatabase } from "./records.ts";
 import {
   PageStore,
   dumpRaw,
@@ -123,6 +123,42 @@ describe("PageStore", () => {
     expect(store.getSnapshot().seasons).toHaveLength(4);
     store.update((db) => createCharacter(db, { title: "勇太" }));
     expect(JSON.parse(storage.getItem(storageKeys.characters)!)).toHaveLength(1);
+  });
+
+  it("中身の変わったキーだけを書く", () => {
+    const storage = new MemoryStorage();
+    const store = new PageStore(storage);
+    store.update((db) => createSeason(db, { title: "作品", unit: "serial" }));
+    const setItem = vi.spyOn(storage, "setItem");
+    store.update((db) => createCharacter(db, { title: "勇太" }));
+    expect(setItem.mock.calls.map(([key]) => key)).toEqual([storageKeys.characters]);
+  });
+
+  it("途中のキーで書けなかったら、書いたキーを戻し、画面の中身も変えない", () => {
+    const storage = new MemoryStorage();
+    const store = new PageStore(storage);
+    const season = store.update((db) => createSeason(db, { title: "作品", unit: "serial" }));
+    const seasonsBefore = storage.getItem(storageKeys.seasons);
+    const episodesBefore = storage.getItem(storageKeys.episodes);
+    const setItem = storage.setItem.bind(storage);
+    vi.spyOn(storage, "setItem").mockImplementation((key, value) => {
+      if (key === storageKeys.episodes) throw new Error("容量を超えた");
+      setItem(key, value);
+    });
+    expect(() =>
+      store.update((db) => {
+        db.seasons[0].title = "直した";
+        createEpisode(db, { seasonId: season.id, title: "", label: "第1話", airedOn: null });
+      }),
+    ).toThrow("容量を超えた");
+    expect(storage.getItem(storageKeys.seasons)).toBe(seasonsBefore);
+    expect(storage.getItem(storageKeys.episodes)).toBe(episodesBefore);
+    expect(store.getSnapshot().seasons[0].title).toBe("作品");
+    expect(store.getWriteError()).toBe("容量を超えた");
+
+    vi.mocked(storage.setItem).mockRestore();
+    store.update((db) => createCharacter(db, { title: "勇太" }));
+    expect(store.getWriteError()).toBeNull();
   });
 
   it("空の LocalStorage は、何も書かずに空で始める", () => {

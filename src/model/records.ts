@@ -154,12 +154,15 @@ export function nextSortKey(db: Database, seasonId: string): number {
   return keys.length === 0 ? 10 : Math.max(...keys) + 10;
 }
 
+/** 名簿の最後に足す。同じキャラクターがもう入っていれば、その行を返す */
 export function addSeasonCharacter(
   db: Database,
   seasonId: string,
   input: { characterId: string; role: string; note?: string },
 ): SeasonCharacter {
   const season = mustFind(db.seasons, seasonId);
+  const existing = season.characters.find((item) => item.characterId === input.characterId);
+  if (existing) return existing;
   const row: SeasonCharacter = {
     id: crypto.randomUUID(),
     characterId: input.characterId,
@@ -285,12 +288,15 @@ export function moveSeriesSeason(
   touch(series);
 }
 
+/** 出演の最後に足す。同じキャラクターがもう出ていれば、その行を返す */
 export function addAppearance(
   db: Database,
   episodeId: string,
   input: { characterId: string; note?: string },
 ): Appearance {
   const episode = mustFind(db.episodes, episodeId);
+  const existing = episode.appearances.find((item) => item.characterId === input.characterId);
+  if (existing) return existing;
   const row: Appearance = {
     id: crypto.randomUUID(),
     characterId: input.characterId,
@@ -389,7 +395,11 @@ export function setBody(db: Database, pageId: string, body: MemoBody): void {
   touch(page);
 }
 
-/** 同じシーズンで隣の話と sortKey を入れ替える */
+/**
+ * 同じシーズンで隣の話と sortKey を入れ替える。
+ * 2台で同時に話を足して同期すると、sortKey が同じ話ができる。入れ替えても動かないので、
+ * そのときは並べ替えた後の順に 10, 20, 30 と振り直し、変わった話だけ直したことにする
+ */
 export function moveEpisode(
   db: Database,
   episodeId: string,
@@ -402,9 +412,20 @@ export function moveEpisode(
   const index = siblings.indexOf(episode);
   const other = siblings[index + direction];
   if (!other) return;
-  [episode.sortKey, other.sortKey] = [other.sortKey, episode.sortKey];
-  touch(episode);
-  touch(other);
+  if (episode.sortKey !== other.sortKey) {
+    [episode.sortKey, other.sortKey] = [other.sortKey, episode.sortKey];
+    touch(episode);
+    touch(other);
+    return;
+  }
+  siblings[index] = other;
+  siblings[index + direction] = episode;
+  siblings.forEach((item, position) => {
+    const sortKey = (position + 1) * 10;
+    if (item.sortKey === sortKey) return;
+    item.sortKey = sortKey;
+    touch(item);
+  });
 }
 
 /** 話は seasonId が無いと開けないので、シーズンと一緒に消す */

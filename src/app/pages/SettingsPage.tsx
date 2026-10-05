@@ -163,13 +163,9 @@ function SyncSection() {
       <h2 className="text-2xl font-semibold">Google ドライブと同期</h2>
       <p className="mt-4 flex flex-wrap items-center gap-2">
         {off ? (
-          <button key="connect" type="button" onClick={() => void sync.connect()} className="btn btn-primary">
-            同期する
-          </button>
+          <ConnectButton key="connect">同期する</ConnectButton>
         ) : state.status === "signed-out" ? (
-          <button key="reconnect" type="button" onClick={() => void sync.connect()} className="btn btn-primary">
-            つなぎ直す
-          </button>
+          <ConnectButton key="reconnect">つなぎ直す</ConnectButton>
         ) : (
           <button
             key="sync"
@@ -207,6 +203,23 @@ function SyncSection() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+/** 押してから Google のスクリプトを読むと、ポップアップが止められることがあるので、触れたときに読んでおく */
+function ConnectButton({ children }: { children: string }) {
+  const sync = useSync();
+  if (!sync) return null;
+  return (
+    <button
+      type="button"
+      onPointerEnter={() => sync.prepare()}
+      onFocus={() => sync.prepare()}
+      onClick={() => void sync.connect()}
+      className="btn btn-primary"
+    >
+      {children}
+    </button>
   );
 }
 

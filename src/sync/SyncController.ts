@@ -136,6 +136,11 @@ export class SyncController {
     this.scheduleExpiry();
   }
 
+  /** つなぐボタンに触れたときと、使っている人が開いたときに呼ぶ。connect で待たずにポップアップを開けるように */
+  prepare(): void {
+    this.deps.auth.preload?.();
+  }
+
   /** ボタンから呼ぶ。トークンを取り、同期を始める */
   async connect(): Promise<void> {
     let token: AccessToken;
