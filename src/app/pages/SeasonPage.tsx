@@ -10,6 +10,7 @@ import {
   moveEpisode,
   removeSeasonCharacter,
   updateSeason,
+  updateCharacter,
   updateSeasonCharacter,
 } from "../../model/records.ts";
 import type { Database, Episode, Season } from "../../model/types.ts";
@@ -31,7 +32,7 @@ import { MoveButton } from "../components/MoveButton.tsx";
 import { PageSuggest } from "../components/PageSuggest.tsx";
 import { SeasonPlaces } from "../components/SeasonPlaces.tsx";
 import { SeasonTerms } from "../components/SeasonTerms.tsx";
-import { TitleFields } from "../components/TitleFields.tsx";
+import { AliasesText, TitleFields } from "../components/TitleFields.tsx";
 import { paths } from "../paths.ts";
 import { UnitToggle } from "../components/UnitToggle.tsx";
 import { useDatabase, useStore } from "../store.ts";
@@ -244,14 +245,12 @@ function Roster({ db, season }: { db: Database; season: Season }) {
                   <span className="shrink-0">
                     <PageLink page={character} />
                   </span>
-                  <InlineText
-                    label={`${character.title} の役柄`}
-                    value={row.role}
-                    placeholder="役柄"
-                    onCommit={(role) =>
-                      store.update((draft) =>
-                        updateSeasonCharacter(draft, season.id, row.id, { role }),
-                      )
+                  <AliasesText
+                    page={character}
+                    label={`${character.title} の別名`}
+                    placeholder="別名"
+                    onAliases={(aliases) =>
+                      store.update((draft) => updateCharacter(draft, character.id, { aliases }))
                     }
                     className="text-xs text-muted"
                   />
@@ -285,13 +284,13 @@ function Roster({ db, season }: { db: Database; season: Season }) {
         hintOf={(character) => character.aliases.join("、") || undefined}
         onPick={(character) =>
           store.update((draft) =>
-            addSeasonCharacter(draft, season.id, { characterId: character.id, role: "" }),
+            addSeasonCharacter(draft, season.id, { characterId: character.id }),
           )
         }
         onCreate={(title) =>
           store.update((draft) => {
             const character = createCharacter(draft, { title });
-            addSeasonCharacter(draft, season.id, { characterId: character.id, role: "" });
+            addSeasonCharacter(draft, season.id, { characterId: character.id });
           })
         }
         createLabel={(text) => `「${text}」を作って名簿に入れる`}

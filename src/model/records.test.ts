@@ -50,7 +50,7 @@ describe("addAppearance と addSeasonCharacter", () => {
   it("同じキャラクターは2度入れず、入っている行を返す", () => {
     const { db, tv1, rikka, first } = example();
     const roster = tv1.characters.find((item) => item.characterId === rikka.id)!;
-    expect(addSeasonCharacter(db, tv1.id, { characterId: rikka.id, role: "" }).id).toBe(roster.id);
+    expect(addSeasonCharacter(db, tv1.id, { characterId: rikka.id }).id).toBe(roster.id);
     expect(tv1.characters.filter((item) => item.characterId === rikka.id)).toHaveLength(1);
     const row = addAppearance(db, first.id, { characterId: rikka.id });
     expect(addAppearance(db, first.id, { characterId: rikka.id }).id).toBe(row.id);

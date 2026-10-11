@@ -158,7 +158,7 @@ export function nextSortKey(db: Database, seasonId: string): number {
 export function addSeasonCharacter(
   db: Database,
   seasonId: string,
-  input: { characterId: string; role: string; note?: string },
+  input: { characterId: string; role?: string; note?: string },
 ): SeasonCharacter {
   const season = mustFind(db.seasons, seasonId);
   const existing = season.characters.find((item) => item.characterId === input.characterId);
@@ -166,7 +166,7 @@ export function addSeasonCharacter(
   const row: SeasonCharacter = {
     id: crypto.randomUUID(),
     characterId: input.characterId,
-    role: input.role,
+    role: input.role ?? "",
     note: input.note ?? "",
   };
   season.characters.push(row);
@@ -178,7 +178,7 @@ export function updateSeasonCharacter(
   db: Database,
   seasonId: string,
   rowId: string,
-  patch: { role?: string; note?: string },
+  patch: { note?: string },
 ): void {
   const season = mustFind(db.seasons, seasonId);
   const row = mustFind(season.characters, rowId);

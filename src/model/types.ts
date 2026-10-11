@@ -117,7 +117,7 @@ export type Page = Series | Season | Episode | Character | Term;
 export interface SeasonCharacter {
   id: string;
   characterId: string;
-  /** 「主人公」など。決まった語彙にはしない */
+  /** 「主人公」など。決まった語彙にはしない。画面では出さず、前のデータのために残している */
   role: string;
   note: string;
 }

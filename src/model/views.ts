@@ -15,7 +15,6 @@ export type OpenTarget =
 export interface SideCharacter {
   characterId: string;
   name: string;
-  role: string;
   note: string;
 }
 
@@ -79,7 +78,7 @@ export interface TermSidePanel {
 
 export interface CharacterSidePanel {
   character: Character;
-  roster: { season: Season; role: string; note: string }[];
+  roster: { season: Season; note: string }[];
   appearances: { episode: Episode; season: Season; note: string }[];
   mentions: Mention[];
 }
@@ -135,7 +134,7 @@ export function buildEpisodeSidePanel(
     next:
       index >= 0 && index < siblings.length - 1 ? siblings[index + 1] : null,
     characters: rows.flatMap((row) => {
-      const character = sideCharacter(season, row.characterId, row.note, db);
+      const character = sideCharacter(row.characterId, row.note, db);
       return character ? [character] : [];
     }),
     characterSource,
@@ -156,7 +155,7 @@ export function buildSeasonSidePanel(
     places: placesOf(db, season.id),
     episodes: episodesIn(db, season.id),
     characters: season.characters.flatMap((item) => {
-      const character = sideCharacter(season, item.characterId, item.note, db);
+      const character = sideCharacter(item.characterId, item.note, db);
       return character ? [character] : [];
     }),
     terms: sideTerms(db, season),
@@ -218,7 +217,6 @@ export function buildCharacterSidePanel(
         .filter((item) => item.characterId === character.id)
         .map((item) => ({
           season,
-          role: item.role,
           note: item.note,
         })),
     ),
@@ -316,20 +314,15 @@ function latest(stamps: string[], fallback: string): string {
 }
 
 function sideCharacter(
-  season: Season,
   characterId: string,
   note: string,
   db: Database,
 ): SideCharacter | null {
   const character = db.characters.find((item) => item.id === characterId);
   if (!character) return null;
-  const roster = season.characters.find(
-    (item) => item.characterId === characterId,
-  );
   return {
     characterId,
     name: character.title,
-    role: roster?.role ?? "",
     note,
   };
 }

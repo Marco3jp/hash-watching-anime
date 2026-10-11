@@ -62,7 +62,7 @@ function synced() {
       airedOn: null,
     });
     const character = createCharacter(local, { title: "六花" });
-    addSeasonCharacter(local, season.id, { characterId: character.id, role: "" });
+    addSeasonCharacter(local, season.id, { characterId: character.id });
     return { season, episode, character };
   });
   const remote: Database = structuredClone(local);

@@ -37,16 +37,37 @@ export function TitleFields({
       </div>
       <div className="mt-1 flex items-center gap-3 text-sm text-muted">
         <span className="shrink-0 text-xs font-semibold">別名</span>
-        <InlineText
-          label="別名"
-          value={page.aliases.join("、")}
-          onCommit={(value) => {
-            const aliases = cleanAliases(page.title, value.split(/[、,，\n]/));
-            // 区切りの打ち方が違うだけで中身が同じなら、直したことにしない
-            if (aliases.join("\n") !== page.aliases.join("\n")) onAliases(aliases);
-          }}
-        />
+        <AliasesText page={page} label="別名" onAliases={onAliases} />
       </div>
     </>
+  );
+}
+
+/** 別名の入力欄。読点かカンマで区切る。サイドパネルの名簿でも使う */
+export function AliasesText({
+  page,
+  label,
+  placeholder,
+  onAliases,
+  className,
+}: {
+  page: Page;
+  label: string;
+  placeholder?: string;
+  onAliases: (aliases: string[]) => void;
+  className?: string;
+}) {
+  return (
+    <InlineText
+      label={label}
+      value={page.aliases.join("、")}
+      placeholder={placeholder}
+      onCommit={(value) => {
+        const aliases = cleanAliases(page.title, value.split(/[、,，\n]/));
+        // 区切りの打ち方が違うだけで中身が同じなら、直したことにしない
+        if (aliases.join("\n") !== page.aliases.join("\n")) onAliases(aliases);
+      }}
+      className={className}
+    />
   );
 }
