@@ -28,7 +28,10 @@ export function UnitToggle({
           type="button"
           role="radio"
           aria-checked={value === unit}
-          onClick={() => onChange(unit)}
+          onClick={() => {
+            // 選んである方を押しても直したことにしない。ホームの並びと同期が動くため
+            if (unit !== value) onChange(unit);
+          }}
           className={`inline-flex cursor-pointer items-center justify-center rounded-md px-3 whitespace-nowrap transition-colors ${
             size === "sm" ? "text-xs" : "text-sm"
           } ${

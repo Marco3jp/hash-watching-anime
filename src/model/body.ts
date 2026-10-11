@@ -224,7 +224,7 @@ export function splitBlock(
   ];
 }
 
-/** 前のブロックの末尾へ寄せる。前のブロックの時刻を残す */
+/** 前のブロックの末尾へ寄せる。前のブロックの時刻を残す。前のブロックに時刻が無ければ、寄せる行の時刻を運ぶ */
 export function mergeWithPrevious(
   blocks: MemoBlock[],
   id: string,
@@ -239,6 +239,7 @@ export function mergeWithPrevious(
       ...blocks.slice(0, index - 1),
       {
         ...previous,
+        at: previous.at ?? current.at,
         writtenAt: previous.writtenAt ?? current.writtenAt,
         runs: normalizeRuns([...previous.runs, ...current.runs]),
       },

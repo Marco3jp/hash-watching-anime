@@ -128,6 +128,13 @@ describe("mergeWithPrevious", () => {
   it("先頭の行は寄せる先が無い", () => {
     expect(mergeWithPrevious(twoBlocks, "a")).toBeNull();
   });
+
+  it("前の行の時刻を残す。前の行に時刻が無ければ、寄せる行の時刻を運ぶ", () => {
+    expect(mergeWithPrevious(twoBlocks, "b")?.blocks[0].at).toBe("02:10");
+    const blank: MemoBlock = { id: "z", at: null, writtenAt: null, runs: [] };
+    const timed: MemoBlock = { ...twoBlocks[0], id: "y", at: "11:10" };
+    expect(mergeWithPrevious([blank, timed], "y")?.blocks[0].at).toBe("11:10");
+  });
 });
 
 describe("blockWithTime", () => {

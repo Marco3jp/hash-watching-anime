@@ -28,12 +28,12 @@ export function InlineText({
     setDraft(value);
   }
 
+  // 欄は保存した値へ戻す。保存して値が変われば、上で新しい値になる。
+  // 前後の空白だけ、別名の区切りだけが違って保存しなかったときも、保存してある形で出す
   const commit = () => {
     const next = draft.trim();
-    if (required && !next) {
-      setDraft(value);
-      return;
-    }
+    setDraft(value);
+    if (required && !next) return;
     if (next !== value) onCommit(next);
   };
 

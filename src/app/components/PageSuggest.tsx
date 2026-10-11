@@ -6,7 +6,9 @@ import { handleSuggestKey, type SuggestOption } from "./suggest.ts";
 
 /**
  * サイドパネルで紐づけ先を選ぶ入力。候補を選ぶと、そのページの id を onPick へ渡す。
- * onCreate があれば、同じ題名が無いときに新しく作る候補を先頭に出す。
+ * onCreate があれば、同じ題名が無いときに新しく作る候補を最後に出す。
+ * 打った文字があるときは先頭の候補を選んでおく。空のときは ↓ で選ぶまで何も選ばない。
+ * 空の欄を Tab で通り過ぎただけで、先頭の候補が入らないように
  */
 export function PageSuggest<T extends Page>({
   pages,
@@ -27,7 +29,8 @@ export function PageSuggest<T extends Page>({
 }) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(-1);
+  const firstActive = (value: string) => (value.trim() ? 0 : -1);
 
   const found = suggestPages(pages, text);
   const options: SuggestOption[] = found.map((page) => ({
@@ -43,7 +46,7 @@ export function PageSuggest<T extends Page>({
     if (option.type === "page") onPick(option.page as T);
     else onCreate?.(option.text);
     setText("");
-    setActive(0);
+    setActive(-1);
   };
 
   return (
@@ -54,10 +57,13 @@ export function PageSuggest<T extends Page>({
         placeholder={placeholder}
         onChange={(event) => {
           setText(event.target.value);
-          setActive(0);
+          setActive(firstActive(event.target.value));
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setActive(firstActive(text));
+          setOpen(true);
+        }}
         onBlur={() => setOpen(false)}
         onKeyDown={(event) =>
           handleSuggestKey(event, {

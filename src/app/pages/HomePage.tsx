@@ -92,7 +92,7 @@ export function HomePage() {
       <div className="space-y-12">
         <section>
           <h2 className="text-2xl font-semibold">キャラクター</h2>
-          <CreateCharacter />
+          <CreatePage kind="character" />
           {db.characters.length === 0 ? null : (
             <ul className="mt-6 divide-y divide-line border-y border-line">
               {db.characters.map((character) => (
@@ -117,7 +117,7 @@ export function HomePage() {
         </section>
         <section>
           <h2 className="text-2xl font-semibold">用語</h2>
-          <CreateTerm />
+          <CreatePage kind="term" />
           {db.terms.length === 0 ? null : (
             <ul className="mt-6 divide-y divide-line border-y border-line">
               {db.terms.map((term) => (
@@ -188,62 +188,35 @@ function CreateSeason() {
   );
 }
 
-function CreateCharacter() {
+/** キャラクターと用語の作る欄。打った名前で当たるページも出す */
+function CreatePage({ kind }: { kind: "character" | "term" }) {
   const db = useDatabase();
   const store = useStore();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
+  const pages = kind === "character" ? db.characters : db.terms;
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     const trimmed = title.trim();
     if (!trimmed) return;
-    const character = store.update((db) => createCharacter(db, { title: trimmed }));
+    const page = store.update((db) =>
+      kind === "character"
+        ? createCharacter(db, { title: trimmed })
+        : createTerm(db, { title: trimmed }),
+    );
     setTitle("");
-    navigate(paths.character(character.id));
+    navigate(kind === "character" ? paths.character(page.id) : paths.term(page.id));
   };
 
   return (
     <form onSubmit={onSubmit} className="mt-4 flex items-center gap-2">
       <JumpSuggest
-        aria-label="キャラクターの名前"
+        aria-label={kind === "character" ? "キャラクターの名前" : "用語の名前"}
         value={title}
         onChange={setTitle}
-        pages={db.characters}
-        hintOf={(character) => character.aliases.join("、") || undefined}
-        placeholder="名前"
-        className="flex-1"
-      />
-      <button type="submit" disabled={!title.trim()} className="btn">
-        作る
-      </button>
-    </form>
-  );
-}
-
-function CreateTerm() {
-  const db = useDatabase();
-  const store = useStore();
-  const navigate = useNavigate();
-  const [title, setTitle] = useState("");
-
-  const onSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    const trimmed = title.trim();
-    if (!trimmed) return;
-    const term = store.update((db) => createTerm(db, { title: trimmed }));
-    setTitle("");
-    navigate(paths.term(term.id));
-  };
-
-  return (
-    <form onSubmit={onSubmit} className="mt-4 flex items-center gap-2">
-      <JumpSuggest
-        aria-label="用語の名前"
-        value={title}
-        onChange={setTitle}
-        pages={db.terms}
-        hintOf={(term) => term.aliases.join("、") || undefined}
+        pages={pages}
+        hintOf={(page) => page.aliases.join("、") || undefined}
         placeholder="名前"
         className="flex-1"
       />

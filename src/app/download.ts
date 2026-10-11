@@ -5,6 +5,11 @@ export function downloadJson(name: string, json: string): void {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = `hash-watching-anime${name ? `-${name}` : ""}-${new Date().toISOString().slice(0, 10)}.json`;
+  // Firefox は文書に入っていないリンクの click で保存しないことがある
+  anchor.hidden = true;
+  document.body.append(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  anchor.remove();
+  // click の直後に URL を消すと、保存が始まる前に消えて失敗するブラウザがある
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
