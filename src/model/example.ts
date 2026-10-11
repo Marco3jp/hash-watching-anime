@@ -81,9 +81,9 @@ export function buildExample(): Database {
   const rikka = createCharacter(db, { title: "小鳥遊六花", aliases: ["六花"] });
   const shinka = createCharacter(db, { title: "丹生谷森夏", aliases: ["森夏"] });
 
-  addSeasonCharacter(db, tv1.id, { characterId: yuuta.id, role: "主人公" });
-  addSeasonCharacter(db, tv1.id, { characterId: rikka.id, role: "ヒロイン" });
-  addSeasonCharacter(db, tv1.id, { characterId: shinka.id, role: "クラスメイト" });
+  addSeasonCharacter(db, tv1.id, { characterId: yuuta.id });
+  addSeasonCharacter(db, tv1.id, { characterId: rikka.id });
+  addSeasonCharacter(db, tv1.id, { characterId: shinka.id });
 
   const evilEye = createTerm(db, { title: "邪王真眼", aliases: ["じゃおうしんがん"] });
   const boundary = createTerm(db, { title: "不可視境界線" });

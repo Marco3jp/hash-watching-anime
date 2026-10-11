@@ -129,7 +129,6 @@ describe("create してから紐づける", () => {
     const character = createCharacter(db, { title: "主人公" });
     const row = addSeasonCharacter(db, season.id, {
       characterId: character.id,
-      role: "主人公",
     });
     expect(row.characterId).toBe(character.id);
     expect(season.characters).toEqual([row]);

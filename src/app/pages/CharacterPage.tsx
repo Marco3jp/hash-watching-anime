@@ -64,9 +64,6 @@ function CharacterView({ db, character }: { db: Database; character: Character }
                 {panel.roster.map((item) => (
                   <li key={item.season.id}>
                     <PageLink page={item.season} />
-                    {item.role ? (
-                      <span className="block text-xs text-muted">{item.role}</span>
-                    ) : null}
                   </li>
                 ))}
               </ul>

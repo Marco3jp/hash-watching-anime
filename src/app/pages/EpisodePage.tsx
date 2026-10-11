@@ -264,8 +264,6 @@ function EpisodeCharacters({
 }) {
   const store = useStore();
   const characterById = new Map(db.characters.map((item) => [item.id, item]));
-  const roleOf = (characterId: string) =>
-    season.characters.find((item) => item.characterId === characterId)?.role ?? "";
   const appeared = new Set(episode.appearances.map((item) => item.characterId));
   const rosterRest = season.characters.filter(
     (item) => !appeared.has(item.characterId) && characterById.has(item.characterId),
@@ -277,7 +275,7 @@ function EpisodeCharacters({
   const createAndAppear = (title: string) =>
     store.update((draft) => {
       const character = createCharacter(draft, { title });
-      addSeasonCharacter(draft, season.id, { characterId: character.id, role: "" });
+      addSeasonCharacter(draft, season.id, { characterId: character.id });
       addAppearance(draft, episode.id, { characterId: character.id });
     });
 
@@ -293,7 +291,7 @@ function EpisodeCharacters({
                 <div className="flex items-center gap-2">
                   <PageLink page={character} />
                   <span className="min-w-0 flex-1 truncate text-xs text-muted">
-                    {roleOf(character.id)}
+                    {character.aliases.join("、")}
                   </span>
                   <RemoveButton
                     label={`${character.title} の出演を外す`}
@@ -338,7 +336,9 @@ function EpisodeCharacters({
                   >
                     {character.title}
                   </Link>
-                  <span className="min-w-0 flex-1 truncate text-xs text-muted/70">{row.role}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-muted/70">
+                    {character.aliases.join("、")}
+                  </span>
                 </li>
               );
             })}
@@ -350,7 +350,7 @@ function EpisodeCharacters({
         label="この話に出すキャラクター"
         placeholder="キャラクターを足す"
         pages={db.characters.filter((item) => !appeared.has(item.id))}
-        hintOf={(character) => roleOf(character.id) || character.aliases.join("、") || undefined}
+        hintOf={(character) => character.aliases.join("、") || undefined}
         onPick={(character) => appear(character.id)}
         onCreate={createAndAppear}
         createLabel={(text) => `「${text}」を作って足す`}
